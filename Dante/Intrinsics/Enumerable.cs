@@ -90,26 +90,6 @@ internal partial class Enumerable
         }
     }
 
-
-    /*public static Enumerable Take1(Enumerable enumerable, IntExpr count)
-                               {
-                                   var ctx = count.Context;
-                                   var elementSort = enumerable._elementSort;
-                                   var takeFuncName = LinqFuncNameGenerator.GenerateName("Take",enumerable);
-                                   var takeFunc = ctx.MkRecFuncDecl(takeFuncName, [enumerable,count.Sort],enumerable);
-                                   const uint paramIndex = 0U;
-                                   var index = (IntExpr)ctx.MkBound(paramIndex, ctx.IntSort);
-                                   var coreEnumerableArray = enumerable.AsArray();
-                                   var projectionBody = ctx.MkITE(ctx.MkLt(index, count),
-                                       ctx.MkSelect(coreEnumerableArray, index),
-                                       EnumerableElementIntrinsics.Default(elementSort)
-                                   );
-                                   var projection = ctx.MkLambda([index.Sort], [ctx.MkSymbol((int)paramIndex)], projectionBody);
-                                   var takeBody = new Enumerable(elementSort, projection);
-        ctx.AddRecDef(takeFunc, [enumerable,count], takeBody);
-        return new Enumerable(elementSort,(DatatypeExpr)takeFunc.Apply(enumerable,count));
-    }*/
-
     private static Enumerable GenerateTake(Enumerable enumerable, IntExpr count, bool useUniqueDefault = true)
     {
         var ctx = count.Context;
