@@ -163,17 +163,14 @@ internal sealed partial class FunctionGenerator
         throw new UnreachableException();
     }
 
-    private Expr? EvaluateBasicBlockBody(BasicBlock basicBlock, ExpressionGenerator expressionGenerator)
+    private void EvaluateBasicBlockBody(BasicBlock basicBlock, ExpressionGenerator expressionGenerator)
     {
-        Expr? blockBody = default;
         foreach (var operation in basicBlock.Operations)
         {
             var genExpr = operation.Accept(expressionGenerator, _genContext);
             GenerationAsserts.RequireValidExpression(genExpr, operation);
-            blockBody = (Expr)genExpr!;
+            expressionGenerator.InvalidateTemporaries();
         }
-
-        return blockBody;
     }
 
     private Expr GenerateExitBasicBlockBody(BasicBlock basicBlock, ExpressionGenerator expressionGenerator)

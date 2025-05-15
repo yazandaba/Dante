@@ -21,12 +21,20 @@ internal record Scope
     {
         return _scopeSymbols.TryGetValue(symbol, out symbolInfo);
     }
+
+    public IEnumerable<SymbolInfo> Symbols => _scopeSymbols.Values;
 }
 
 internal class SymbolInfo
 {
     public required FuncDecl Declaration { get; init; }
     public Expr? Value { get; set; }
+
+    /// <summary>
+    ///     the value that was used before or while updating 'Value', This property only applies when its associated
+    ///     operation is post-increment or post-decrement.
+    /// </summary>
+    public Expr? TemporaryValue { get; set; }
 }
 
 internal class SymbolEvaluationTable
@@ -42,11 +50,12 @@ internal class SymbolEvaluationTable
             });
     }
 
-    public void Bind(ISymbol symbol, Expr valueExprTree)
+    public void Bind(ISymbol symbol, Expr valueExprTree, Expr? temporaryValue = null)
     {
         var fetched = TryFetch(symbol, out SymbolInfo? symbolInfo);
         fetched.Should().BeTrue($"trying to bind value expression tree to non existent symbol '{symbol}'");
         symbolInfo!.Value = valueExprTree;
+        symbolInfo.TemporaryValue = temporaryValue;
     }
 
     public void AddThenBind(ISymbol symbol, FuncDecl declaredSymbol, Expr valueExprTree)
@@ -56,6 +65,11 @@ internal class SymbolEvaluationTable
             Declaration = declaredSymbol,
             Value = valueExprTree
         });
+    }
+
+    public void InvalidateTemporaries()
+    {
+        foreach (var symbol in _recentScope.Symbols) symbol.TemporaryValue = null;
     }
 
     public bool TryFetch(ISymbol symbol, [MaybeNullWhen(false)] out FuncDecl declaredSymbol)
@@ -68,7 +82,7 @@ internal class SymbolEvaluationTable
     public bool TryFetch(ISymbol symbol, [MaybeNullWhen(false)] out Expr value)
     {
         var status = TryFetch(symbol, out SymbolInfo? symbolInfo);
-        value = symbolInfo?.Value;
+        value = GetValue(symbolInfo);
         return status && value is not null;
     }
 
@@ -85,4 +99,26 @@ internal class SymbolEvaluationTable
         declaredSymbol = null;
         return false;
     }
+
+    private Expr? GetValue(SymbolInfo? symbolInfo)
+    {
+        if (symbolInfo is null) return default;
+
+        return symbolInfo.TemporaryValue ?? symbolInfo.Value;
+    }
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

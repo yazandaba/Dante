@@ -218,8 +218,8 @@ internal sealed partial class ExpressionGenerator : OperationWalker<GenerationCo
                 var targetLValue = (Expr)targetNode!;
                 var newExpr = GenerateArithmeticOrBitwiseExpression(incOrDecOperation, targetLValue,
                     solverContext.MkInt(1), context);
-                UpdateReferencedSymbolValueInEvalTable(incOrDecOperation.Target, newExpr, context);
-                return incOrDecOperation.IsPostfix ? newExpr : targetLValue;
+                UpdateReferencedSymbolValueInEvalTable(incOrDecOperation.Target, newExpr, context, targetLValue);
+                return incOrDecOperation.IsPostfix ? targetLValue : newExpr;
             }
 
             default:
@@ -758,15 +758,18 @@ internal sealed partial class ExpressionGenerator : OperationWalker<GenerationCo
 
     #endregion TermsAndApplications
 
-    private void UpdateReferencedSymbolValueInEvalTable(IOperation operation, Expr newExpr, GenerationContext context)
+    private void UpdateReferencedSymbolValueInEvalTable(IOperation operation,
+        Expr newExpr,
+        GenerationContext context,
+        Expr? temporary = null)
     {
         switch (operation)
         {
             case ILocalReferenceOperation localRef:
-                _owningBasicBlockSymbolEvalTable.Bind(localRef.Local, newExpr);
+                _owningBasicBlockSymbolEvalTable.Bind(localRef.Local, newExpr, temporary);
                 break;
             case IParameterReferenceOperation paramRef:
-                _owningBasicBlockSymbolEvalTable.Bind(paramRef.Parameter, newExpr);
+                _owningBasicBlockSymbolEvalTable.Bind(paramRef.Parameter, newExpr, temporary);
                 break;
             case IArrayElementReferenceOperation arrayElementRef:
             {
@@ -789,21 +792,26 @@ internal sealed partial class ExpressionGenerator : OperationWalker<GenerationCo
                 throw new NotSupportedException(
                     $"property '{propertyRef.Property}' has custom setter, which is not supported");
             case IPropertyReferenceOperation { Property: { SetMethod: null, GetMethod: null } } propertyRef:
-                context.GlobalEvaluationTable.Bind(propertyRef.Property, newExpr);
+                context.GlobalEvaluationTable.Bind(propertyRef.Property, newExpr, temporary);
                 break;
             case IPropertyReferenceOperation { Property.GetMethod: not null } propertyRef:
-                context.GlobalEvaluationTable.Bind(propertyRef.Property, newExpr);
+                context.GlobalEvaluationTable.Bind(propertyRef.Property, newExpr, temporary);
                 break;
             case IMethodReferenceOperation:
                 break;
             case IFlowCaptureReferenceOperation captureRef:
                 UpdateReferencedSymbolValueInEvalTable(
                     _owningControlFlowGraphFlowCaptureTable.Captured(captureRef),
-                    newExpr, context);
+                    newExpr, context, temporary);
                 break;
             default:
                 throw new NotSupportedException(
                     $"cannot handle evaluation of referenced object '{operation.GetSyntaxNodeText()}'");
         }
+    }
+
+    public void InvalidateTemporaries()
+    {
+        _owningBasicBlockSymbolEvalTable.InvalidateTemporaries();
     }
 }
