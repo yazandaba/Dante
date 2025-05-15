@@ -108,7 +108,15 @@ internal static class MaybeIntrinsics
     {
         UnderlyingType.IsMaybe(maybeExpr).Should()
             .BeTrue("cannot create '{0}' out of non underlying maybe type", maybeExpr.Sort.Name);
+        var isNone = ((DatatypeSort)maybeExpr.Sort).Recognizers[1];
+        return (BoolExpr)isNone.Apply(maybeExpr);
+    }
+
+    public static BoolExpr IsNull(DatatypeExpr maybeExpr)
+    {
+        UnderlyingType.IsMaybe(maybeExpr).Should()
+            .BeTrue("cannot create '{0}' out of non underlying maybe type", maybeExpr.Sort.Name);
         var isNone = ((DatatypeSort)maybeExpr.Sort).Recognizers[0];
-        return !(BoolExpr)isNone.Apply(maybeExpr);
+        return (BoolExpr)isNone.Apply(maybeExpr);
     }
 }

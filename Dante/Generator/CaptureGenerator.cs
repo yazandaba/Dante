@@ -19,7 +19,7 @@ internal partial class ExpressionGenerator
     {
         return operation.Operand.Accept(this, argument)! is not DatatypeExpr expr
             ? argument.SolverContext.MkFalse() //expression cannot be a maybe expression, so it cannot be null 
-            : MaybeIntrinsics.HasValue(expr);
+            : MaybeIntrinsics.IsNull(expr);
     }
 
     public override Expr VisitFlowCapture(IFlowCaptureOperation operation, GenerationContext context)
