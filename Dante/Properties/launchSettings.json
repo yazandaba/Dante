@@ -1,0 +1,59 @@
+{
+  "profiles": {
+    "Arith": {
+      "commandName": "Project",
+      "workingDirectory": "$(MSBuildProjectDirectory)/../Sample",
+      "commandLineArgs": "-highlight -debug -p Sample.csproj -c Sample.Arith -original Original -transformed Transformed -r 10"
+    },
+    "Basic": {
+      "commandName": "Project",
+      "workingDirectory": "$(MSBuildProjectDirectory)/../Sample",
+      "commandLineArgs": "-highlight -debug -p Sample.csproj -c Sample.Basic -original Original -transformed Transformed -r 10"
+    },
+    "BasicControlFlow": {
+      "commandName": "Project",
+      "workingDirectory": "$(MSBuildProjectDirectory)/../Sample",
+      "commandLineArgs": "-highlight -debug -p Sample.csproj -c Sample.BasicControlFlow -original Original -transformed Transformed -r 10"
+    },
+    "Loop": {
+      "commandName": "Project",
+      "workingDirectory": "$(MSBuildProjectDirectory)/../Sample",
+      "commandLineArgs": "-highlight -debug -p Sample.csproj -c Sample.Loop -original Original -transformed Transformed -r 10"
+    },
+    "NullCoalescing": {
+      "commandName": "Project",
+      "workingDirectory": "$(MSBuildProjectDirectory)/../Sample",
+      "commandLineArgs": "-highlight -debug -p Sample.csproj -c Sample.NullCoalescing -original Original -transformed Transformed -r 10"
+    },
+    "StringsAndNullable": {
+      "commandName": "Project",
+      "workingDirectory": "$(MSBuildProjectDirectory)/../Sample",
+      "commandLineArgs": "-highlight -debug -p Sample.csproj -c Sample.StringsAndNullable -original Original -transformed Transformed -r 10"
+    },
+    "Linq.FailTakeAndFilter": {
+      "commandName": "Project",
+      "workingDirectory": "$(MSBuildProjectDirectory)/../Sample",
+      "commandLineArgs": "-highlight -debug -p Sample.csproj -c Sample.Linq -original OriginalTakeAndFilter -transformed TransformedTakeAndFilter -r 10"
+    },
+    "Linq.FailTakeAndSelect": {
+      "commandName": "Project",
+      "workingDirectory": "$(MSBuildProjectDirectory)/../Sample",
+      "commandLineArgs": "-highlight -debug -p Sample.csproj -c Sample.Linq -original OriginalFailTakeAndSelect -transformed TransformedFailTakeAndSelect -r 10"
+    },
+    "Linq.Select": {
+      "commandName": "Project",
+      "workingDirectory": "$(MSBuildProjectDirectory)/../Sample",
+      "commandLineArgs": "-highlight -debug -p Sample.csproj -c Sample.Linq -original OriginalSelect -transformed TransformedSelect -r 10"
+    },
+    "Linq.TakeAndSelect": {
+      "commandName": "Project",
+      "workingDirectory": "$(MSBuildProjectDirectory)/../Sample",
+      "commandLineArgs": "-highlight -debug -p Sample.csproj -c Sample.Linq -original OriginalTakeAndSelect -transformed TransformedTakeAndSelect -r 10"
+    },
+    "Linq.Ordering": {
+      "commandName": "Project",
+      "workingDirectory": "$(MSBuildProjectDirectory)/../Sample",
+      "commandLineArgs": "-highlight -debug -p Sample.csproj -c Sample.Linq -original OriginalOrdering -transformed TransformedOrdering -r 10"
+    }
+  }
+}
