@@ -18,6 +18,7 @@ public static class Program
             var arguments = CommandLineParser.Parse<DanteCommandLine>(args);
             if (arguments is null) return -1;
 
+            arguments.Project = Path.GetFullPath(arguments.Project);
             if (!File.Exists(arguments.Project))
             {
                 Console.Error.WriteLine($"specified project file {arguments.Project} does not exist");
