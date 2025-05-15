@@ -288,20 +288,9 @@ internal sealed partial class ExpressionGenerator : OperationWalker<GenerationCo
         //generate null equality expression (expr == null , expr != null)
         if (binaryExpression.IsNullableEqualityCheck())
         {
-            if (binaryExpression.LeftOperand.IsNullLiteralOperation() && rhs is DatatypeExpr maybeRhs)
-                return MaybeIntrinsics.HasValue(maybeRhs);
-
-            if (binaryExpression.RightOperand.IsNullLiteralOperation() && lhs is DatatypeExpr maybeLhs)
-                return MaybeIntrinsics.HasValue(maybeLhs);
-
-            Logger.LogError("Equality expression '{expression}' was analyzed as being null equality comparison but " +
-                            "could not be generated correctly, an abstract equality will get generated instead",
-                binaryExpression.GetSyntaxNodeText());
-            return binaryExpression.OperatorKind is BinaryOperatorKind.Equals
-                ? context.SolverContext.MkEq(lhs, rhs)
-                : !context.SolverContext.MkEq(lhs, rhs);
+            return GenerateNullableEquality(binaryExpression, lhs, rhs, context);
         }
-
+        
         //generate string equality expression
         if (leftOprType.IsString() && rightOprType.IsString() && binaryExpression.IsEqualityExpression())
             return binaryExpression.OperatorKind is BinaryOperatorKind.Equals
@@ -341,6 +330,36 @@ internal sealed partial class ExpressionGenerator : OperationWalker<GenerationCo
                     $"expression '{binaryExpression.GetSyntaxNodeText()}' is neither floating point nor" +
                     $"integeral expression but '{binOperationType.Name}' ");
         }
+    }
+
+    private BoolExpr GenerateNullableEquality(IBinaryOperation binaryExpression,
+        Expr lhs,
+        Expr rhs,
+        GenerationContext context)
+    {
+        if (binaryExpression.OperatorKind is BinaryOperatorKind.Equals) //expr == null
+        {
+            if (binaryExpression.LeftOperand.IsNullLiteralOperation() && rhs is DatatypeExpr maybeRhs)
+                return MaybeIntrinsics.IsNull(maybeRhs);
+
+            if (binaryExpression.RightOperand.IsNullLiteralOperation() && lhs is DatatypeExpr maybeLhs)
+                return MaybeIntrinsics.IsNull(maybeLhs);
+        }
+        else //expr != null
+        {
+            if (binaryExpression.LeftOperand.IsNullLiteralOperation() && rhs is DatatypeExpr maybeRhs)
+                return MaybeIntrinsics.HasValue(maybeRhs);
+
+            if (binaryExpression.RightOperand.IsNullLiteralOperation() && lhs is DatatypeExpr maybeLhs)
+                return MaybeIntrinsics.HasValue(maybeLhs);
+        }
+
+        Logger.LogError("Equality expression '{expression}' was analyzed as being null equality comparison but " +
+                        "could not be generated correctly, an abstract equality will get generated instead",
+            binaryExpression.GetSyntaxNodeText());
+        return binaryExpression.OperatorKind is BinaryOperatorKind.Equals
+            ? context.SolverContext.MkEq(lhs, rhs)
+            : !context.SolverContext.MkEq(lhs, rhs);
     }
 
     private BoolExpr GenerateNormalRelationalExpression(
