@@ -65,8 +65,7 @@ public class Linq
         int i = 0;
         while (i < 10)
         {
-            result[i] = numbers[i] + 1;
-            ++i;
+            result[i] = numbers[i++] + 1;
         }
         
         return result;

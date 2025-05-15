@@ -4,7 +4,7 @@ public class StringsAndNullable
 {
     public string Original(string? x)
     {
-        string? y = "mario";
+        var y = "mario";
         if (x == null)
         {
             x = "Hello";
@@ -12,6 +12,8 @@ public class StringsAndNullable
             {
                 return "Nono";
             }
+
+            y = y + " luigi";
         }
         else
         {
@@ -25,7 +27,7 @@ public class StringsAndNullable
 
     public string Transformed(string? x)
     {
-        string? y = "mario";
+        string? y = null;
         if (x == null)
         {
             x = "Hello";
@@ -33,6 +35,8 @@ public class StringsAndNullable
             {
                 return "Nono";
             }
+
+            y ??= "mario luigi";
         }
         else
         {

@@ -11,10 +11,10 @@ public class NullCoalescing
         
         return str + ext;
     }
-    
-    public string Transformed(string? strx, string ext)
+
+    public string Transformed(string? str, string ext)
     {
-        strx ??= ext;
-        return strx + ext;
+        str ??= ext;
+        return str + ext;
     }
 }
