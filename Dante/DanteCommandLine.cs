@@ -37,7 +37,7 @@ internal partial class DanteCommandLine
     [Description("the maximum number of recursive constructs depth when abstractlly intepreteated.")]
     public uint RecursionDepth { get; set; }
 
-    [CommandLineArgument("Timeout", DefaultValue = uint.MaxValue, IsRequired = false)]
+    [CommandLineArgument("Timeout", ShortName = 't', DefaultValue = uint.MaxValue, IsRequired = false)]
     [Description(
         "The maximum duration (in milliseconds) that the solver is allowed to spend attempting to either prove " +
         "the correctness of a logical formula or find contradictions within it.")]
