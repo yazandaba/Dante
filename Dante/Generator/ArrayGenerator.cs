@@ -17,7 +17,12 @@ internal partial class ExpressionGenerator
         var arrayType = arrayTypeOpt!;
         var arraySort = (ArraySort)arrayType.AsSort();
         var domain = arraySort.Domain;
-        var constArray = solverContext.MkConstArray(domain, domain.MkDefault());
+        ArrayExpr constArray;
+        if (arrayType.Rank is 1)
+            constArray = solverContext.MkConstArray(arraySort.Domain, domain.MkDefault());
+        else
+            constArray = (ArrayExpr)solverContext.MkConst($"const{arrayType.ElementType.ToDisplayString()}", arraySort);
+
         if (operation.Initializer is not null)
         {
             var indexer = 0;
