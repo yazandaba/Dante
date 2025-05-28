@@ -8,16 +8,16 @@ internal sealed class CallableDeclarationAdapter
 {
     private readonly MethodDeclarationSyntax? _method;
     private readonly AnonymousFunctionExpressionSyntax? _anonymousFunction;
-    private readonly IMethodSymbol _underlyingSymbol;
+    public IMethodSymbol UnderlyingSymbol { get; }
     public SyntaxTree SyntaxTree => _method?.SyntaxTree ?? _anonymousFunction!.SyntaxTree;
-    public ITypeSymbol ReturnType => _underlyingSymbol.ReturnType;
-    public ImmutableArray<IParameterSymbol> Parameters => _underlyingSymbol.Parameters;
+    public ITypeSymbol ReturnType => UnderlyingSymbol.ReturnType;
+    public ImmutableArray<IParameterSymbol> Parameters => UnderlyingSymbol.Parameters;
 
     public CallableDeclarationAdapter(MethodDeclarationSyntax method, IMethodSymbol underlyingSymbol)
     {
         _method = method;
         _anonymousFunction = null;
-        _underlyingSymbol = underlyingSymbol;
+        UnderlyingSymbol = underlyingSymbol;
     }
 
     public CallableDeclarationAdapter(AnonymousFunctionExpressionSyntax anonymousFunction,
@@ -25,9 +25,9 @@ internal sealed class CallableDeclarationAdapter
     {
         _method = null;
         _anonymousFunction = anonymousFunction;
-        _underlyingSymbol = underlyingSymbol;
+        UnderlyingSymbol = underlyingSymbol;
     }
 
     public bool IsAnonymousLambda =>
-        _anonymousFunction is SimpleLambdaExpressionSyntax or ParenthesizedLambdaExpressionSyntax;
+        _anonymousFunction is SimpleLambdaExpressionSyntax or ParenthesizedLambdaExpressionSyntax; 
 }
