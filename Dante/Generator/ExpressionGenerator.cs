@@ -16,12 +16,11 @@ namespace Dante.Generator;
 
 internal sealed partial class ExpressionGenerator : OperationWalker<GenerationContext>
 {
+    private static readonly ILogger<ExpressionGenerator> Logger = LoggerFactory.Create<ExpressionGenerator>();
     private readonly SymbolEvaluationTable _owningBasicBlockSymbolEvalTable;
     private readonly FlowCaptureTable _owningControlFlowGraphFlowCaptureTable;
     private readonly ImmutableDictionary<string, Expr> _owningBasicBlockParameters;
-
-    private static readonly ILogger<ExpressionGenerator> Logger = LoggerFactory.Create<ExpressionGenerator>();
-
+    
     public ExpressionGenerator(
         SymbolEvaluationTable owningBasicBlockSymbolEvalTable,
         FlowCaptureTable owningControlFlowGraphFlowCaptureTable)
@@ -62,18 +61,26 @@ internal sealed partial class ExpressionGenerator : OperationWalker<GenerationCo
             return newArray;
         }
 
-        UpdateReferencedSymbolValueInEvalTable(targetRefOperation, operandExpr, context);
+        UpdateReferencedSymbolValueInEvalTable(targetRefOperation, operandExpr, context, generateIfNotExists: true);
         return operandExpr;
     }
 
     public override Expr VisitCompoundAssignment(ICompoundAssignmentOperation operation, GenerationContext context)
     {
-        var target = operation.Target.Accept(this, context);
+        var targetRefOperation = operation.Target;
+        var target = targetRefOperation.Accept(this, context);
         GenerationAsserts.RequireValidExpression(target, operation.Target);
         var operand = operation.Value.Accept(this, context);
         GenerationAsserts.RequireValidExpression(operand, operation.Value);
         var assignedExpr = GenerateArithmeticOrBitwiseExpression(operation, (Expr)target!, (Expr)operand!, context);
-        UpdateReferencedSymbolValueInEvalTable(operation.Target, assignedExpr, context);
+        if (targetRefOperation is IArrayElementReferenceOperation arrayElemRefOp)
+        {
+            var newArray = GenerateStore(arrayElemRefOp, context, assignedExpr);
+            UpdateReferencedSymbolValueInEvalTable(arrayElemRefOp, newArray, context);
+            return newArray;
+        }
+
+        UpdateReferencedSymbolValueInEvalTable(targetRefOperation, assignedExpr, context, generateIfNotExists: true);
         return assignedExpr;
     }
 
@@ -218,7 +225,7 @@ internal sealed partial class ExpressionGenerator : OperationWalker<GenerationCo
                 var targetLValue = (Expr)targetNode!;
                 var newExpr = GenerateArithmeticOrBitwiseExpression(incOrDecOperation, targetLValue,
                     solverContext.MkInt(1), context);
-                UpdateReferencedSymbolValueInEvalTable(incOrDecOperation.Target, newExpr, context, targetLValue);
+                UpdateReferencedSymbolValueInEvalTable(incOrDecOperation.Target, newExpr, context, targetLValue, true);
                 return incOrDecOperation.IsPostfix ? targetLValue : newExpr;
             }
 
@@ -670,12 +677,6 @@ internal sealed partial class ExpressionGenerator : OperationWalker<GenerationCo
 
         if (operation.IsEnumerableCall(semantics)) return GenerateLinq(operation, context, semantics);
 
-        var funcSort = invokedMethod.ReturnType.AsSort();
-        var funcArgumentsSorts = operation
-            .Arguments
-            .Select(argument => argument.Value.Type!.AsSort())
-            .ToArray();
-
         var funcArguments = operation
             .Arguments
             .Select(argument =>
@@ -690,14 +691,19 @@ internal sealed partial class ExpressionGenerator : OperationWalker<GenerationCo
             })
             .ToArray();
 
+        FuncDecl? func;
+        if (operation.TargetMethod.WasSourceDeclared())
+        {
+            if (context.GlobalEvaluationTable.TryFetch(invokedMethod, out func)) return func.Apply(funcArguments);
 
-        var methodFullName = operation.TargetMethod.ToDisplayString();
-        if (_owningBasicBlockSymbolEvalTable.TryFetch(invokedMethod, out FuncDecl? func))
+            var funcGenerator = FunctionGenerator.Create(invokedMethod.GetDeclaration());
+            func = funcGenerator.Generate();
+            context.GlobalEvaluationTable.TryAdd(invokedMethod, func);
             return func.Apply(funcArguments);
-        //TODO handle out or ref arguments if invoked method was declared as part of source
-        func = context.SolverContext.MkFuncDecl(methodFullName, funcArgumentsSorts, funcSort);
-        context.GlobalEvaluationTable.TryAdd(invokedMethod, func);
-        return func.Apply(funcArguments);
+        }
+
+        func = FunctionGenerator.DeclareFunctionFromMethod(operation.TargetMethod, context);
+        return func!.Apply(funcArguments);
     }
 
     public override Expr VisitLiteral(ILiteralOperation operation, GenerationContext context)
@@ -780,10 +786,17 @@ internal sealed partial class ExpressionGenerator : OperationWalker<GenerationCo
     private void UpdateReferencedSymbolValueInEvalTable(IOperation operation,
         Expr newExpr,
         GenerationContext context,
-        Expr? temporary = null)
+        Expr? temporary = null,
+        bool generateIfNotExists = false)
     {
         switch (operation)
         {
+            case ILocalReferenceOperation localRef when generateIfNotExists:
+                _owningBasicBlockSymbolEvalTable.BindOrAdd(localRef.Local, newExpr, temporary);
+                break;
+            case IParameterReferenceOperation parameterRef when generateIfNotExists:
+                _owningBasicBlockSymbolEvalTable.BindOrAdd(parameterRef.Parameter, newExpr, temporary);
+                break;
             case ILocalReferenceOperation localRef:
                 _owningBasicBlockSymbolEvalTable.Bind(localRef.Local, newExpr, temporary);
                 break;
@@ -821,7 +834,7 @@ internal sealed partial class ExpressionGenerator : OperationWalker<GenerationCo
             case IFlowCaptureReferenceOperation captureRef:
                 UpdateReferencedSymbolValueInEvalTable(
                     _owningControlFlowGraphFlowCaptureTable.Captured(captureRef),
-                    newExpr, context, temporary);
+                    newExpr, context, temporary, generateIfNotExists);
                 break;
             default:
                 throw new NotSupportedException(
