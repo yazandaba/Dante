@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using Dante.Extensions;
 using Dante.Generator;
 using FluentAssertions;
 using Microsoft.CodeAnalysis;
@@ -32,12 +33,15 @@ public class VerificationDriver
 {
     private readonly GenerationContext _generationContext;
     private readonly ILogger<VerificationDriver> _logger;
+    private readonly Stopwatch _compilerStopwatch = new();
+    private readonly Stopwatch _solverStopwatch = new();
 
-    public VerificationDriver(CSharpCompilation compilation, uint timeout, uint recursionDepth)
+    public VerificationDriver(CSharpCompilation compilation, uint timeout, uint recursionDepth, uint rlimit)
     {
         var solverContext = new Context();
         solverContext.UpdateParamValue("proof", "true");
         solverContext.UpdateParamValue("timeout", timeout.ToString());
+        solverContext.UpdateParamValue("rlimit", rlimit.ToString());
         _generationContext = GenerationContext.CreateOrGet(solverContext, compilation, recursionDepth);
         _logger = LoggerFactory.Create<VerificationDriver>();
     }
@@ -56,31 +60,69 @@ public class VerificationDriver
         return funcGenerator.Generate();
     }
 
-    public VerificationResult Verify(
-        string entryTypeFullName,
-        string originalMethodName,
-        string transformedMethodName)
+    private BoolExpr? Compile(string entryTypeFullName, string originalMethodName, string transformedMethodName)
     {
-        var solver = _generationContext.SolverContext.MkSolver();
-        var originalFunc = GenerateMethod(entryTypeFullName, originalMethodName);
-        var transformedFunc = GenerateMethod(entryTypeFullName, transformedMethodName);
-        if (originalFunc is null || transformedFunc is null) return new VerificationResult { Succeed = false };
-
-        var satExpression =
-            FunctionGenerator.GenerateSatisfiabilityExpression(originalFunc, transformedFunc, _generationContext);
-
-        solver.Assert(satExpression);
-        var status = solver.Check();
-        var smtText = string.Empty;
         try
         {
-            smtText = solver.ToString();
+            _compilerStopwatch.Start();
+            var originalFunc = GenerateMethod(entryTypeFullName, originalMethodName);
+            var transformedFunc = GenerateMethod(entryTypeFullName, transformedMethodName);
+            if (originalFunc is null || transformedFunc is null) return default;
+
+            var sat = FunctionGenerator.GenerateSatisfiabilityExpression(originalFunc, transformedFunc,
+                _generationContext);
+            return sat;
+        }
+        catch (Exception e)
+        {
+            _logger.LogError(e.Message);
+            return default;
+        }
+        finally
+        {
+            _compilerStopwatch.Stop();
+        }
+    }
+
+    private (Status status, Model? model, string smt) Solve(BoolExpr satExpression)
+    {
+        try
+        {
+            var solver = _generationContext.SolverContext.MkSolver();
+            _solverStopwatch.Start();
+            solver.Assert(satExpression);
+            var status = solver.Check();
+            var smtText = solver.ToString();
+            return (status, status is Status.SATISFIABLE ? solver.Model : default, smtText);
         }
         catch (AccessViolationException)
         {
             _logger.LogError("Z3 internal error (smt text cannot be retrieved)");
         }
+        catch (Exception e)
+        {
+            _logger.LogError(e.Message);
+        }
+        finally
+        {
+            _solverStopwatch.Stop();
+        }
 
+        return (Status.UNKNOWN, default, string.Empty);
+    }
+
+    public VerificationResult Verify(
+        string entryTypeFullName,
+        string originalMethodName,
+        string transformedMethodName)
+    {
+        var compiledProgram = Compile(entryTypeFullName, originalMethodName, transformedMethodName);
+        if (compiledProgram is null)
+        {
+            return new VerificationResult { Succeed = false };
+        }
+
+        var (status, model, smt) = Solve(compiledProgram);
         return status switch
         {
             Status.UNKNOWN => new VerificationResult
@@ -90,7 +132,7 @@ public class VerificationDriver
                 Message =
                     "undecidable problem, cannot determine if original function always imply transformed function.",
                 Model = string.Empty,
-                SmtText = smtText
+                SmtText = smt
             },
 
             Status.SATISFIABLE => new VerificationResult
@@ -99,18 +141,18 @@ public class VerificationDriver
                 Satisfiable = false,
                 Message = "original function does not always imply transformed function, there was " +
                           "at least one set of values that broke the bi-proposition.",
-                Model = solver.Model.ToString(),
-                SmtText = smtText
+                Model = model?.ToString() ?? string.Empty,
+                SmtText = smt
             },
 
             Status.UNSATISFIABLE => new VerificationResult
             {
                 Succeed = true,
                 Satisfiable = true,
-                Message = "original function always imply transformed function, there was no of set values " +
+                Message = "original function always imply transformed function, there was no set of values " +
                           "that could be assigned to the abstract symbols where it breaks the bi-proposition.",
                 Model = string.Empty,
-                SmtText = smtText
+                SmtText = smt
             },
 
             _ => throw new UnreachableException()
@@ -140,5 +182,11 @@ public class VerificationDriver
             _logger.LogError("method with name '{methodName}' was not found", methodName);
             return default;
         }
+    }
+
+    public void DisplayPipelineExecutionTime()
+    {
+        _compilerStopwatch.DisplayExecutionTime("compilation");
+        _solverStopwatch.DisplayExecutionTime("SMT solving");
     }
 }
