@@ -45,7 +45,7 @@ internal record GenerationContext
     /// <summary>
     ///     class or struct members evaluation table
     /// </summary>
-    public SymbolEvaluationTable GlobalEvaluationTable { get; } = new();
+    public SymbolEvaluationTable GlobalEvaluationTable { get; init; } = new();
 
     /// <summary>
     ///     the virtual depth of recursion when abstract symbols are being used in loops
@@ -71,6 +71,7 @@ internal record FunctionGenerationContext : GenerationContext
         var genContext = GetInstance();
         return new FunctionGenerationContext
         {
+            GlobalEvaluationTable = genContext.GlobalEvaluationTable,
             SolverContext = genContext.SolverContext,
             SortPool = genContext.SortPool,
             Compilation = genContext.Compilation,
