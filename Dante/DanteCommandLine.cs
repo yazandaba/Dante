@@ -37,6 +37,10 @@ internal partial class DanteCommandLine
     [Description("the maximum number of recursive constructs depth when abstractlly intepreteated.")]
     public uint RecursionDepth { get; set; }
 
+    [CommandLineArgument("Limit", ShortName = 'l', DefaultValue = 1_000_000_00, IsRequired = false)]
+    [Description("the maximum number of operations that can be executed by Z3.")]
+    public uint Limit { get; set; }
+
     [CommandLineArgument("Timeout", ShortName = 't', DefaultValue = uint.MaxValue, IsRequired = false)]
     [Description(
         "The maximum duration (in milliseconds) that the solver is allowed to spend attempting to either prove " +
