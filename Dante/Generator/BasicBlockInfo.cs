@@ -52,4 +52,9 @@ internal sealed class BasicBlockInfo
     ///     locals declared in basic block (corresponding lexical scope)
     /// </summary>
     public required IReadOnlyList<ISymbol> BasicBlockLexicalSymbols { get; init; }
+
+    /// <summary>
+    ///     respective evaluation table of basic block
+    /// </summary>
+    public SymbolEvaluationTable BasicBlockEvaluationTable { get; set; } = null!;
 }
