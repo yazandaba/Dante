@@ -32,18 +32,21 @@ public static class Program
             var diagnostics = compilation.GetDiagnostics().Where(d => d.Severity is DiagnosticSeverity.Error);
             foreach (var diagnostic in diagnostics) Console.WriteLine(diagnostic);
 
-            var verificationDriver = new VerificationDriver(compilation, arguments.Timeout, arguments.RecursionDepth);
+            var verificationDriver = new VerificationDriver(compilation,
+                arguments.Timeout,
+                arguments.RecursionDepth,
+                arguments.Limit);
             var (succeed, satisfiable, message, model, smtText) =
                 verificationDriver.Verify(arguments.Class, arguments.Original, arguments.Transformed);
 
             if (!succeed) return -1;
-
-            Console.WriteLine($"Message:{message}");
-            Console.WriteLine("=========================================");
-
+            Console.WriteLine($"=========================================\n" +
+                              $"Message: {message}\n" +
+                              "=========================================");
+            
             if (arguments.Debug)
             {
-                if (!satisfiable)
+                if (!satisfiable && !string.IsNullOrEmpty(model))
                 {
                     Console.WriteLine("Model:");
                     if (arguments.Pretty)
@@ -61,6 +64,7 @@ public static class Program
                 Console.WriteLine("\n=========================================");
             }
 
+            verificationDriver.DisplayPipelineExecutionTime();
             return satisfiable ? 0 : -1;
         }
         catch (Exception e)
