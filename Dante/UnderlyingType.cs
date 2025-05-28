@@ -4,7 +4,7 @@ namespace Dante;
 
 internal static class UnderlyingType
 {
-    public static bool IsMaybe(Sort sort)
+    private static bool IsMaybe(Sort sort)
     {
         if (sort is not DatatypeSort datatypeSort) return false;
 
@@ -16,6 +16,7 @@ internal static class UnderlyingType
 
         var value = datatypeSort.Accessors[1][0];
         var name = $"Maybe{value.Range}";
+        if (some.Domain[0] is ArraySort) name = "MaybeArray";
         return datatypeSort.Name.ToString() == name &&
                none.Name.ToString() is "None" or "none" &&
                some.Name.ToString() is "Some" or "some";
