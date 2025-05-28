@@ -1,5 +1,6 @@
 using Dante.Asserts;
 using Dante.Extensions;
+using Dante.Intrinsics;
 using FluentAssertions;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.Operations;
@@ -51,6 +52,8 @@ internal partial class ExpressionGenerator
     {
         var rank = operation.Indices.Length;
         var referencedArray = operation.ArrayReference.Accept(this, context);
+        if (referencedArray is DatatypeExpr maybeArray && UnderlyingType.IsMaybe(maybeArray))
+            referencedArray = MaybeIntrinsics.Value(maybeArray);
         GenerationAsserts.RequireValidExpression<ArrayExpr>(referencedArray, operation.ArrayReference);
         var indicesExpression = new Expr[rank];
         for (var i = 0; i < rank; ++i) indicesExpression[i] = GenerateIndexExpression(operation, context, i);
