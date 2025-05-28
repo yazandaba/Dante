@@ -30,6 +30,16 @@
       "workingDirectory": "$(MSBuildProjectDirectory)/../Sample",
       "commandLineArgs": "-highlight -debug -p Sample.csproj -c Sample.StringsAndNullable -original Original -transformed Transformed -r 10"
     },
+    "Factorial": {
+      "commandName": "Project",
+      "workingDirectory": "$(MSBuildProjectDirectory)/../Sample",
+      "commandLineArgs": "-highlight -debug -p Sample.csproj -c Sample.Factorial -original Original -transformed Transformed -r 10"
+    },
+    "MatMulThenSum": {
+      "commandName": "Project",
+      "workingDirectory": "$(MSBuildProjectDirectory)/../Sample",
+      "commandLineArgs": "-highlight -debug -p Sample.csproj -c Sample.MatMulThenSum -original Original -transformed Transformed -r 5"
+    },
     "Linq.FailTakeAndFilter": {
       "commandName": "Project",
       "workingDirectory": "$(MSBuildProjectDirectory)/../Sample",
