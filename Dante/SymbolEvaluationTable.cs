@@ -27,9 +27,8 @@ internal record Scope
 
 internal class SymbolInfo
 {
-    public required FuncDecl Declaration { get; init; }
+    public FuncDecl? Declaration { get; init; }
     public Expr? Value { get; set; }
-
     /// <summary>
     ///     the value that was used before or while updating 'Value', This property only applies when its associated
     ///     operation is post-increment or post-decrement.
@@ -65,6 +64,18 @@ internal class SymbolEvaluationTable
             Declaration = declaredSymbol,
             Value = valueExprTree
         });
+    }
+
+    public void BindOrAdd(ISymbol symbol, Expr valueExprTree, Expr? temporaryValue = null)
+    {
+        //already exist, only bound the symbol to the new value
+        if (_recentScope.Fetch(symbol, out _))
+            Bind(symbol, valueExprTree, temporaryValue);
+        else
+            _recentScope.AddSymbol(symbol, new SymbolInfo
+            {
+                Value = valueExprTree
+            });
     }
 
     public void InvalidateTemporaries()
