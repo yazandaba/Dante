@@ -38,7 +38,7 @@
     "MatMulThenSum": {
       "commandName": "Project",
       "workingDirectory": "$(MSBuildProjectDirectory)/../Sample",
-      "commandLineArgs": "-highlight -debug -p Sample.csproj -c Sample.MatMulThenSum -original Original -transformed Transformed -r 5"
+      "commandLineArgs": "-highlight -debug -p Sample.csproj -c Sample.MatMulThenSum -original Original -transformed Transformed -r 10"
     },
     "Linq.FailTakeAndFilter": {
       "commandName": "Project",
