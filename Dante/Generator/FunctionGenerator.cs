@@ -1,3 +1,4 @@
+using System.Collections.Immutable;
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
@@ -6,7 +7,6 @@ using Dante.Extensions;
 using Dante.Intrinsics;
 using FluentAssertions;
 using Microsoft.CodeAnalysis;
-using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.FlowAnalysis;
 using Microsoft.Extensions.Logging;
 using Microsoft.Z3;
@@ -16,7 +16,6 @@ namespace Dante.Generator;
 internal sealed partial class FunctionGenerator
 {
     private readonly Context _context;
-    private readonly CSharpCompilation _ownerCompilation;
     private readonly CallableDeclarationAdapter _ownerCallable;
     private readonly ControlFlowGraph _ownerMethodCfg;
     private readonly BasicBlockAnnotator _basicBlockAnnotator;
@@ -25,6 +24,7 @@ internal sealed partial class FunctionGenerator
     private readonly Dictionary<BasicBlock, BasicBlockInfo> _generatedBlocks;
     private readonly SymbolEvaluationTable _functionDefaultEvalTable = new();
     private readonly FlowCaptureTable _flowCaptureTable = new();
+    private readonly LivenessDataflowAnalyzer _livenessDataflowAnalyzer;
     private static readonly ILogger<FunctionGenerator> Logger = LoggerFactory.Create<FunctionGenerator>();
 
     private FunctionGenerator(
@@ -32,9 +32,10 @@ internal sealed partial class FunctionGenerator
         ControlFlowGraph ownerMethodCfg,
         uint graphId)
     {
+        
         _genContext = FunctionGenerationContext.Create(ownerMethodCfg);
         _context = _genContext.SolverContext;
-        _ownerCompilation = _genContext.Compilation;
+        var ownerCompilation = _genContext.Compilation;
         _ownerCallable = ownerCallable;
         _ownerMethodCfg = ownerMethodCfg;
         _basicBlockAnnotator = new BasicBlockAnnotator(ownerMethodCfg, graphId);
@@ -44,6 +45,12 @@ internal sealed partial class FunctionGenerator
                 ReferenceEqualityComparer.Instance);
         foreach (var parameter in ownerCallable.Parameters)
             GenerateFunctionParameter(parameter, _functionDefaultEvalTable);
+
+        _livenessDataflowAnalyzer = new LivenessDataflowAnalyzer(
+            ownerCallable,
+            ownerMethodCfg,
+            ownerCompilation.GetSemanticModel(_ownerCallable.SyntaxTree)
+        );
     }
 
     /// <summary>
@@ -85,8 +92,13 @@ internal sealed partial class FunctionGenerator
 
     private FuncDecl GenerateFunctionFromControlFlowGraph()
     {
-        var root = _ownerMethodCfg.Blocks[0];
-        return GenerateBasicBlock(root);
+        _livenessDataflowAnalyzer.Analyze();
+        var entry = _ownerMethodCfg.Blocks[0];
+        var entryFuncDecl = DeclareFunctionFromBasicBlock(entry);
+        //we add entry basic block early to the global evaluation table so we can reuse/call declared func
+        //recursively while generating other functions CFG.
+        _genContext.GlobalEvaluationTable.TryAdd(_ownerCallable.UnderlyingSymbol, entryFuncDecl);
+        return GenerateBasicBlockWithoutRecursion(entry);
     }
 
     private FuncDecl GenerateBasicBlock(BasicBlock basicBlock)
@@ -96,6 +108,21 @@ internal sealed partial class FunctionGenerator
                 ? GenerateShortCircuitedBasicBlock(basicBlock)
                 : declaredBasicBlockFunc;
 
+        return GenerateBasicBlockWithoutRecursion(basicBlock);
+    }
+
+    /// <summary>
+    ///     generate basic block ignoring recursive calls down in the CFG
+    /// </summary>
+    /// <remarks>
+    ///     misusing this function will cause stack overflow
+    /// </remarks>
+    /// <param name="basicBlock">basic block to start code generation from</param>
+    /// <returns></returns>
+    /// <exception cref="UnreachableException"></exception>
+    private FuncDecl GenerateBasicBlockWithoutRecursion(BasicBlock basicBlock)
+    {
+        FuncDecl declaredBasicBlockFunc;
         if (basicBlock.IsConditionalBasicBlock())
         {
             declaredBasicBlockFunc = DeclareFunctionFromBasicBlock(basicBlock);
@@ -135,7 +162,6 @@ internal sealed partial class FunctionGenerator
                 return immDomFunc;
             }
 
-            returnBlock = returnBlock.Kind is BasicBlockKind.Exit ? basicBlock : returnBlock;
             var returnFuncParams = GenerateBasicBlockFuncParameterList(returnBlock);
             var expressionGenerator =
                 new ExpressionGenerator(immDomBlockEvalTable, _flowCaptureTable, returnFuncParams);
@@ -217,17 +243,40 @@ internal sealed partial class FunctionGenerator
         return callSuccessor;
     }
 
-    private Expr[] GenerateBasicBlockFuncArgumentList(BasicBlock basicBlock, SymbolEvaluationTable evaluationTable)
+    private Expr[] GenerateBasicBlockFuncArgumentList(BasicBlock targetBlock, SymbolEvaluationTable evaluationTable)
     {
-        _generatedBlocks.TryGetValue(basicBlock, out var basicBlockInfo);
+        _generatedBlocks.TryGetValue(targetBlock, out var basicBlockInfo);
         basicBlockInfo.Should().NotBeNull("fetching basic block info failed as basic block was not generated before");
-        var arguments = basicBlockInfo!
-            .DependentOnSymbols
-            .Select(symbol => symbol is ILocalSymbol localSymbol
-                ? GenerateFunctionLocal(localSymbol, evaluationTable)
-                : GenerateFunctionParameter((IParameterSymbol)symbol, evaluationTable))
-            .ToArray();
-        return arguments;
+        var arguments = new List<Expr>();
+        foreach (var dependentOnSymbol in basicBlockInfo!.DependentOnSymbols)
+        {
+            var argument = dependentOnSymbol switch
+            {
+                //be more tolerant in release even if it means less optimized code
+#if RELEASE
+               ILocalSymbol local => GenerateFunctionLocal(local, evaluationTable, false),
+               IParameterSymbol parameter => GenerateFunctionParameter(parameter, evaluationTable, false),
+               _ => null
+#else
+                ILocalSymbol local => GenerateFunctionLocal(local, evaluationTable, true),
+                IParameterSymbol parameter => GenerateFunctionParameter(parameter, evaluationTable, true),
+                _ => null
+#endif
+            };
+
+            if (argument is not null)
+            {
+                arguments.Add(argument);
+            }
+            else
+            {
+                var dependency = _generatedBlocks[targetBlock];
+                if (dependency.BasicBlockEvaluationTable.TryFetch(dependentOnSymbol, out Expr? dependencyValue))
+                    arguments.Add(dependencyValue);
+            }
+        }
+
+        return arguments.ToArray();
     }
 
     private Expr[] GenerateBasicBlockFuncParameterList(BasicBlock basicBlock)
@@ -251,18 +300,24 @@ internal sealed partial class FunctionGenerator
 
     #region LocalsAndParamters
 
-    private Expr GenerateFunctionParameter(IParameterSymbol parameterSymbol, SymbolEvaluationTable basicBlockEvalTable)
+    private Expr? GenerateFunctionParameter(IParameterSymbol parameterSymbol,
+        SymbolEvaluationTable basicBlockEvalTable,
+        bool existingOnly = false)
     {
-        return GenerateFunctionScopedSymbol(parameterSymbol, parameterSymbol.Type, basicBlockEvalTable);
+        return GenerateFunctionScopedSymbol(parameterSymbol, parameterSymbol.Type, basicBlockEvalTable, existingOnly);
     }
 
-    private Expr GenerateFunctionLocal(ILocalSymbol localSymbol, SymbolEvaluationTable basicBlockEvalTable)
+    private Expr? GenerateFunctionLocal(ILocalSymbol localSymbol,
+        SymbolEvaluationTable basicBlockEvalTable,
+        bool existingOnly = false)
     {
-        return GenerateFunctionScopedSymbol(localSymbol, localSymbol.Type, basicBlockEvalTable);
+        return GenerateFunctionScopedSymbol(localSymbol, localSymbol.Type, basicBlockEvalTable, existingOnly);
     }
 
-    private Expr GenerateFunctionScopedSymbol(ISymbol localSymbol, ITypeSymbol symbolType,
-        SymbolEvaluationTable basicBlockEvalTable)
+    private Expr? GenerateFunctionScopedSymbol(ISymbol localSymbol,
+        ITypeSymbol symbolType,
+        SymbolEvaluationTable basicBlockEvalTable,
+        bool existingOnly = false)
     {
         if (basicBlockEvalTable.TryFetch(localSymbol, out Expr? paramExpr))
         {
@@ -281,12 +336,17 @@ internal sealed partial class FunctionGenerator
             return paramExpr;
         }
 
-        var symbolSort = symbolType.AsSort();
-        var declaredParameterSymbol = _context.MkConstDecl(localSymbol.Name, symbolSort);
-        //for nullable objects apply will yield to the usage of 'None' type constructor of respective maybe monad implicitly
-        paramExpr = declaredParameterSymbol.Apply();
-        basicBlockEvalTable.AddThenBind(localSymbol, declaredParameterSymbol, paramExpr);
-        return paramExpr;
+        if (!existingOnly)
+        {
+            var symbolSort = symbolType.AsSort();
+            var declaredParameterSymbol = _context.MkConstDecl(localSymbol.Name, symbolSort);
+            //for nullable objects apply will yield to the usage of 'None' type constructor of respective maybe monad implicitly
+            paramExpr = declaredParameterSymbol.Apply();
+            basicBlockEvalTable.AddThenBind(localSymbol, declaredParameterSymbol, paramExpr);
+            return paramExpr;
+        }
+
+        return null;
     }
 
     #endregion LocalsAndParamters
@@ -314,47 +374,30 @@ internal sealed partial class FunctionGenerator
         return func;
     }
 
-    private FuncDecl DeclareFunctionFromBasicBlock(BasicBlock basicBlock, bool blockBasedAnalysis = true)
+    private FuncDecl DeclareFunctionFromBasicBlock(BasicBlock basicBlock)
     {
         if (_generatedBlocks.TryGetValue(basicBlock, out var basicBlockInfo)) return basicBlockInfo.GeneratedBasicBlock;
 
         var basicBlockName = _basicBlockAnnotator.GenerateBlockName();
-        var semantics = _ownerCompilation.GetSemanticModel(_ownerCallable.SyntaxTree);
-        var dataflowAnalyzer = DataflowAnalyzer.Create(basicBlock, semantics, blockBasedAnalysis);
-        var dependentOnSymbols = new List<ISymbol>();
-        var basicBlockSymbols = new List<ISymbol>();
-        if (dataflowAnalyzer is not null)
+        var basicBlockLivenessAnalysis = _livenessDataflowAnalyzer.GetLivenessInfoOf(basicBlock);
+        IReadOnlyList<ISymbol> dependentOnSymbols;
+        if (_ownerCallable.IsAnonymousLambda)
         {
-            var dataflowAnalysisRes = dataflowAnalyzer
-                .AnalyzeLiveOutSymbols()
-                .AnalyzeLiveInSymbols()
-                .AnalyzeScopeLocalSymbols()
-                .AnalysisResult();
-
-            var liveOutVariables = dataflowAnalysisRes.LiveOutSymbols;
-            var liveInVariables = dataflowAnalysisRes.LiveInSymbols;
-            var declaredLocals = dataflowAnalysisRes.ScopeLocalSymbols;
-            basicBlockSymbols.AddRange(
-                liveOutVariables.Union(
-                    liveInVariables.Union(declaredLocals, SymbolEqualityComparer.Default),
-                    SymbolEqualityComparer.Default));
-
-            if (_ownerCallable.IsAnonymousLambda)
-                dependentOnSymbols.AddRange(_ownerCallable.Parameters);
-            else
-                dependentOnSymbols.AddRange(
-                    liveOutVariables
-                        .Union(liveInVariables, SymbolEqualityComparer.Default)
-                        .Except(declaredLocals));
+            dependentOnSymbols = _ownerCallable.Parameters;
         }
         else
         {
-            basicBlockSymbols.AddRange(_ownerCallable.Parameters);
-            dependentOnSymbols = basicBlockSymbols;
+            dependentOnSymbols = [..basicBlockLivenessAnalysis.FlowIn];
         }
 
+        var basicBlockSymbols = basicBlockLivenessAnalysis.LiveIn
+            .Union(basicBlockLivenessAnalysis.LiveOut)
+            .Union(basicBlockLivenessAnalysis.RegionLocals)
+            .ToImmutableArray();
 
+        dependentOnSymbols = dependentOnSymbols.OrderBy(symbol => symbol.Name).ToArray();
         var paramsSort = dependentOnSymbols
+            .OrderBy(symbol => symbol.Name)
             .Select(symbol =>
                 symbol is ILocalSymbol localSymbol
                     ? localSymbol.Type.AsSort()
@@ -381,25 +424,20 @@ internal sealed partial class FunctionGenerator
             return new ValueTuple<FuncDecl, FuncDecl>(basicBlockInfo.GeneratedBasicBlockImmediateDominator!,
                 basicBlockInfo.GeneratedBasicBlock);
 
-        var immediateDominatorBlockFunc = DeclareFunctionFromBasicBlock(basicBlock, false);
+        var immediateDominatorBlockFunc = DeclareFunctionFromBasicBlock(basicBlock);
         var basicBlockName = _basicBlockAnnotator.GenerateBlockName();
-        var semantics = _ownerCompilation.GetSemanticModel(_ownerCallable.SyntaxTree);
-        var returnDataflowAnalyzer = DataflowAnalyzer.CreateAnalyzerTargetingReturn(basicBlock, semantics);
-        var exitBasicBlockSymbols = new List<ISymbol>();
-        if (returnDataflowAnalyzer is not null && !_ownerCallable.IsAnonymousLambda)
+        var returnLiveness = _livenessDataflowAnalyzer.GetLivenessInfoOf(basicBlock);
+        IReadOnlyList<ISymbol> exitBasicBlockSymbols;
+        if (!_ownerCallable.IsAnonymousLambda)
         {
-            var dataflowAnalysisRes = returnDataflowAnalyzer
-                .AnalyzeLiveInSymbols()
-                .AnalysisResult();
-
-            var liveInVariables = dataflowAnalysisRes.LiveInSymbols;
-            exitBasicBlockSymbols.AddRange(liveInVariables);
+            exitBasicBlockSymbols = [..returnLiveness.FlowIn];
         }
         else
         {
-            exitBasicBlockSymbols.AddRange(_ownerCallable.Parameters);
+            exitBasicBlockSymbols = _ownerCallable.Parameters;
         }
 
+        exitBasicBlockSymbols = exitBasicBlockSymbols.OrderBy(symbol => symbol.Name).ToArray();
         var paramsSort = exitBasicBlockSymbols
             .Select(symbol =>
                 symbol is ILocalSymbol localSymbol
@@ -455,6 +493,7 @@ internal sealed partial class FunctionGenerator
                     throw new UnreachableException();
             }
 
+        basicBlockInfo.BasicBlockEvaluationTable = evalTable;
         return evalTable;
     }
 }
