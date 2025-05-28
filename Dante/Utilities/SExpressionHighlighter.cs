@@ -32,7 +32,6 @@ internal class SExpressionHighlighter : ISyntaxVisitor
         try
         {
             if (string.IsNullOrWhiteSpace(code)) return;
-
             var tree = new SParser(code).Parse();
             tree.Accept(this);
         }
@@ -45,10 +44,12 @@ internal class SExpressionHighlighter : ISyntaxVisitor
 
     private static void Print(ConsoleColor color, in Token token)
     {
+        Console.ForegroundColor = ConsoleColor.Green;
+        Console.Write(token.AuxiliaryText);
+        Console.Write(token.Comment);
         Console.ForegroundColor = color;
         Console.Write(token.Value);
         Console.ResetColor();
-        Console.Write(token.AuxiliaryText);
     }
 
     public void Visit(SExprSyntax node)
@@ -253,6 +254,7 @@ internal readonly struct Token
     public TokenType Type { get; init; } = TokenType.None;
     public string Value { get; init; } = string.Empty;
     public string AuxiliaryText { get; init; } = string.Empty;
+    public string Comment { get; init; } = string.Empty;
 }
 
 internal class SLexer
@@ -288,18 +290,26 @@ internal class SLexer
     public void Lex()
     {
         var pos = 0;
+        var auxiliary = string.Empty;
+        var comment = string.Empty;
         while (!IsEndOfFile(pos))
         {
             var ch = _code[pos];
             if (IsAuxiliaryChar(ch))
             {
-                var auxiliaryText = ScanAuxiliary(pos);
-                var currentToken = _tokens[^1];
-                //attach any auxiliary text to the last processed token
-                _tokens[^1] = currentToken with { AuxiliaryText = auxiliaryText };
-                pos += auxiliaryText.Length;
+                auxiliary = ScanAuxiliary(pos);
+                pos += auxiliary.Length;
+                continue;
             }
-            else if (ch is '(')
+
+            if (IsCommentChar(ch))
+            {
+                comment = ScanComment(pos);
+                pos += comment.Length;
+                continue;
+            }
+
+            if (ch is '(')
             {
                 _tokens.Add(new Token { Type = TokenType.LeftParenthesis, Value = ch.ToString() });
                 ++pos;
@@ -336,6 +346,13 @@ internal class SLexer
             else
             {
                 ++pos;
+            }
+
+            if (_tokens.Count > 0 && (!string.IsNullOrEmpty(auxiliary) || !string.IsNullOrEmpty(comment)))
+            {
+                _tokens[^1] = _tokens[^1] with { AuxiliaryText = auxiliary, Comment = comment };
+                auxiliary = string.Empty;
+                comment = string.Empty;
             }
         }
     }
@@ -395,6 +412,18 @@ internal class SLexer
         return new Token { Type = TokenType.Identifier, Value = identifierBuilder.ToString() };
     }
 
+    private string ScanComment(int i)
+    {
+        var commentBuilder = new StringBuilder();
+        do
+        {
+            var ch = _code[i++];
+            commentBuilder.Append(ch);
+        } while (!IsEndOfFile(i) && _code[i] is not '(');
+
+        return commentBuilder.ToString();
+    }
+
     private string ScanAuxiliary(int i)
     {
         var auxiliaryBuilder = new StringBuilder();
@@ -406,6 +435,7 @@ internal class SLexer
 
         return auxiliaryBuilder.ToString();
     }
+    
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static bool IsIdentifierLegalChar(char ch)
@@ -423,6 +453,12 @@ internal class SLexer
     private static bool IsAuxiliaryChar(char ch)
     {
         return char.IsWhiteSpace(ch);
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static bool IsCommentChar(char ch)
+    {
+        return ch is ';';
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
