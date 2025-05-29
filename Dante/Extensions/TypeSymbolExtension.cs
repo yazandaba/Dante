@@ -1,7 +1,7 @@
 using System.Diagnostics;
 using System.Diagnostics.Contracts;
 using System.Runtime.CompilerServices;
-using Dante.Generator;
+using Dante.Generators;
 using Dante.Intrinsics;
 using Microsoft.CodeAnalysis;
 using Microsoft.Z3;
@@ -14,9 +14,15 @@ internal static class TypeSymbolExtension
     [MethodImpl(MethodImplOptions.AggressiveInlining | MethodImplOptions.AggressiveOptimization)]
     public static Sort AsSort(this ITypeSymbol typeSymbol, bool considerNullable = true)
     {
-        if (considerNullable && typeSymbol.IsNullable()) return MaybeIntrinsics.CreateOrGet(typeSymbol);
+        if (considerNullable && typeSymbol.IsNullable())
+        {
+            return MaybeIntrinsics.CreateOrGet(typeSymbol);
+        }
 
-        if (IsEnumerable(typeSymbol)) return Enumerable.CreateOrGet(typeSymbol);
+        if (IsEnumerable(typeSymbol))
+        {
+            return Enumerable.CreateOrGet(typeSymbol);
+        }
 
         var genContext = GenerationContext.GetInstance();
         var context = genContext.SolverContext;
@@ -26,10 +32,16 @@ internal static class TypeSymbolExtension
             case IArrayTypeSymbol arrayType:
             {
                 var arrayElementSort = AsSort(arrayType.ElementType);
-                if (arrayType.Rank is 1) return context.MkArraySort(context.IntSort, arrayElementSort);
+                if (arrayType.Rank is 1)
+                {
+                    return context.MkArraySort(context.IntSort, arrayElementSort);
+                }
 
                 var domains = new Sort[arrayType.Rank];
-                for (var i = 0; i < arrayType.Rank; ++i) domains[i] = context.IntSort;
+                for (var i = 0; i < arrayType.Rank; ++i)
+                {
+                    domains[i] = context.IntSort;
+                }
 
                 return context.MkArraySort(domains, arrayElementSort);
             }
@@ -153,7 +165,11 @@ internal static class TypeSymbolExtension
 
     public static ITypeSymbol AsNonNullableType(this ITypeSymbol typeSymbol)
     {
-        if (!typeSymbol.IsNullable()) return typeSymbol;
+        if (!typeSymbol.IsNullable())
+        {
+            return typeSymbol;
+        }
+
         var namedTypeSymbol = (INamedTypeSymbol)typeSymbol;
         //deduced type argument of System.Nullable<T>
         var typeArgument = namedTypeSymbol.TypeArguments[0];

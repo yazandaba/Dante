@@ -1,4 +1,4 @@
-using Dante.Generator;
+using Dante.Generators;
 using FluentAssertions;
 using Microsoft.CodeAnalysis;
 

@@ -2,7 +2,7 @@
 
 public class Loop
 {
-    int Original(int x)
+    private int Original(int x)
     {
         while (x > 0 && x < 100)
         {

@@ -4,7 +4,7 @@ using Microsoft.CodeAnalysis.FlowAnalysis;
 using Microsoft.CodeAnalysis.Operations;
 using Microsoft.Z3;
 
-namespace Dante.Generator;
+namespace Dante.Generators;
 
 /// <summary>
 ///     this partition implements code generation of C# lowered nullable operations like null coalescing or null

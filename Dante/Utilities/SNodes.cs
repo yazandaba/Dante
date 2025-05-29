@@ -24,7 +24,10 @@ internal sealed class SSyntaxTree
 
     public void Accept(ISyntaxVisitor visitor)
     {
-        foreach (var sExpression in _sExpressions) sExpression.Accept(visitor);
+        foreach (var sExpression in _sExpressions)
+        {
+            sExpression.Accept(visitor);
+        }
     }
 }
 

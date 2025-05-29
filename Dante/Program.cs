@@ -15,8 +15,11 @@ public static class Program
     {
         try
         {
-            var arguments = CommandLineParser.Parse<DanteCommandLine>(args);
-            if (arguments is null) return -1;
+            var arguments = CommandLineParser.Parse<CommandLine>(args);
+            if (arguments is null)
+            {
+                return -1;
+            }
 
             arguments.Project = Path.GetFullPath(arguments.Project);
             if (!File.Exists(arguments.Project))
@@ -30,39 +33,56 @@ public static class Program
             var project = ws.OpenProjectAsync(Path.GetFullPath(arguments.Project)).Result;
             var compilation = (CSharpCompilation)project.GetCompilationAsync().Result!;
             var diagnostics = compilation.GetDiagnostics().Where(d => d.Severity is DiagnosticSeverity.Error);
-            foreach (var diagnostic in diagnostics) Console.WriteLine(diagnostic);
+            foreach (var diagnostic in diagnostics)
+            {
+                Console.WriteLine(diagnostic);
+            }
 
             var verificationDriver = new VerificationDriver(compilation,
                 arguments.Timeout,
                 arguments.RecursionDepth,
                 arguments.Limit,
                 arguments.RandomDepth);
-            
+
             var (succeed, satisfiable, message, model, smtText) =
                 verificationDriver.Verify(arguments.Class, arguments.Original, arguments.Transformed);
 
-            if (!succeed) return -1;
+            if (!succeed)
+            {
+                return -1;
+            }
+
             Console.WriteLine($"=========================================\n" +
                               $"Message: {message}\n" +
                               "=========================================");
-            
+
             if (arguments.Debug)
             {
                 if (!satisfiable && !string.IsNullOrEmpty(model))
                 {
                     Console.WriteLine("Model:");
                     if (arguments.Pretty)
+                    {
                         Highlighter.Highlight(model);
+                    }
                     else
+                    {
                         Console.WriteLine(model);
+                    }
+
                     Console.WriteLine("\n=========================================");
                 }
 
                 Console.WriteLine("SMT:");
                 if (arguments.Pretty)
+                {
                     Highlighter.Highlight(smtText);
+                }
                 else
+                {
                     Console.WriteLine(smtText);
+                }
+
                 Console.WriteLine("\n=========================================");
             }
 

@@ -4,7 +4,10 @@ public class Factorial
 {
     public int Original(int x)
     {
-        if (x <= 1) return 1;
+        if (x <= 1)
+        {
+            return 1;
+        }
 
         return x * Original(x - 1);
     }

@@ -8,7 +8,7 @@ public class NullCoalescing
         {
             str = ext;
         }
-        
+
         return str + ext;
     }
 

@@ -1,5 +1,5 @@
 using Dante.Extensions;
-using Dante.Generator;
+using Dante.Generators;
 using FluentAssertions;
 using Microsoft.CodeAnalysis;
 using Microsoft.Z3;
@@ -32,7 +32,10 @@ internal partial class Enumerable
 
     public static Enumerable CreateOrGet(ITypeSymbol typeParameter)
     {
-        if (InstantiationMap.TryGetValue(typeParameter, out var enumerable)) return enumerable;
+        if (InstantiationMap.TryGetValue(typeParameter, out var enumerable))
+        {
+            return enumerable;
+        }
 
         var namedTypeSymbol = (INamedTypeSymbol)typeParameter;
         var typeArgument = namedTypeSymbol.TypeArguments.FirstOrDefault() ?? typeParameter;
@@ -128,19 +131,23 @@ internal partial class Enumerable
         return (ArrayExpr)enumerable._enumerableSort.Accessors[0][0].Apply(enumerable._enumerableExpr);
     }
 
-    private static Enumerable GenerateSelect(Enumerable enumerable, FuncDecl lambda,
+    private static Enumerable GenerateSelect(Enumerable enumerable,
+        FuncDecl lambda,
         IReadOnlyList<FuncDecl> wherePredicates)
     {
         return Map("Select", enumerable, lambda, wherePredicates);
     }
 
-    private static Enumerable GenerateWhere(Enumerable enumerable, FuncDecl lambda,
+    private static Enumerable GenerateWhere(Enumerable enumerable,
+        FuncDecl lambda,
         IReadOnlyList<FuncDecl> wherePredicates)
     {
         return Map("Where", enumerable, lambda, wherePredicates);
     }
 
-    private static Enumerable Map(string queryName, Enumerable enumerable, FuncDecl lambda,
+    private static Enumerable Map(string queryName,
+        Enumerable enumerable,
+        FuncDecl lambda,
         IReadOnlyList<FuncDecl> wherePredicates)
     {
         var enumerableSort = enumerable._enumerableSort;
@@ -155,7 +162,9 @@ internal partial class Enumerable
         return new Enumerable(elementSort, (DatatypeExpr)mapFunc.Apply(enumerable));
     }
 
-    private static FuncDecl MapCore(string queryName, Enumerable enumerable, FuncDecl lambda,
+    private static FuncDecl MapCore(string queryName,
+        Enumerable enumerable,
+        FuncDecl lambda,
         IReadOnlyList<FuncDecl> wherePredicates)
     {
         var elementSort = enumerable.ElementSort;
@@ -169,7 +178,9 @@ internal partial class Enumerable
         return mapCoreFunc;
     }
 
-    private static Expr MapLambdaInvoke(string queryName, FuncDecl lambda, Expr element,
+    private static Expr MapLambdaInvoke(string queryName,
+        FuncDecl lambda,
+        Expr element,
         IReadOnlyList<FuncDecl> wherePredicates)
     {
         return queryName switch
@@ -184,10 +195,15 @@ internal partial class Enumerable
     {
         var ctx = lambda.Context;
         var defaultValue = element.Sort.MkUniqueDefault();
-        if (wherePredicates.Count is 0) return lambda.Apply(element);
+        if (wherePredicates.Count is 0)
+        {
+            return lambda.Apply(element);
+        }
 
         if (wherePredicates.Count is 1)
+        {
             return ctx.MkITE((BoolExpr)wherePredicates[0].Apply(element), lambda.Apply(element), defaultValue);
+        }
 
         var selectionCondition = ctx.MkAnd(wherePredicates.Select(p => (BoolExpr)p.Apply(element)));
         return ctx.MkITE(selectionCondition, lambda.Apply(element), defaultValue);
@@ -199,13 +215,17 @@ internal partial class Enumerable
         var defaultValue = element.Sort.MkUniqueDefault();
         Expr lambdaInvocation;
         if (predicates.Count > 0)
+        {
             lambdaInvocation = ctx.MkITE(
                 ctx.MkAnd((BoolExpr)lambda.Apply(element), ctx.MkAnd(
                     predicates.Select(p => (BoolExpr)p.Apply(element)))),
                 element,
                 defaultValue);
+        }
         else
+        {
             lambdaInvocation = ctx.MkITE((BoolExpr)lambda.Apply(element), element, defaultValue);
+        }
 
         return lambdaInvocation;
     }

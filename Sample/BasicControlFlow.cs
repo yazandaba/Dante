@@ -13,9 +13,9 @@ public class BasicControlFlow
             x = "Hello";
         }
 
-        return x+"World";
+        return x + "World";
     }
-    
+
     public string Transformed(string? x)
     {
         return "HelloWorld";

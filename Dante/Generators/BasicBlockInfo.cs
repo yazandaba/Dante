@@ -2,7 +2,7 @@ using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.FlowAnalysis;
 using Microsoft.Z3;
 
-namespace Dante.Generator;
+namespace Dante.Generators;
 
 internal sealed class BasicBlockAnnotator
 {

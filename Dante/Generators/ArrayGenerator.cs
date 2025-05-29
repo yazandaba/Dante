@@ -6,7 +6,7 @@ using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.Operations;
 using Microsoft.Z3;
 
-namespace Dante.Generator;
+namespace Dante.Generators;
 
 internal partial class ExpressionGenerator
 {
@@ -20,9 +20,13 @@ internal partial class ExpressionGenerator
         var domain = arraySort.Domain;
         ArrayExpr constArray;
         if (arrayType.Rank is 1)
+        {
             constArray = solverContext.MkConstArray(arraySort.Domain, domain.MkDefault());
+        }
         else
+        {
             constArray = (ArrayExpr)solverContext.MkConst($"const{arrayType.ElementType.ToDisplayString()}", arraySort);
+        }
 
         if (operation.Initializer is not null)
         {
@@ -53,10 +57,16 @@ internal partial class ExpressionGenerator
         var rank = operation.Indices.Length;
         var referencedArray = operation.ArrayReference.Accept(this, context);
         if (referencedArray is DatatypeExpr maybeArray && UnderlyingType.IsMaybe(maybeArray))
+        {
             referencedArray = MaybeIntrinsics.Value(maybeArray);
+        }
+
         GenerationAsserts.RequireValidExpression<ArrayExpr>(referencedArray, operation.ArrayReference);
         var indicesExpression = new Expr[rank];
-        for (var i = 0; i < rank; ++i) indicesExpression[i] = GenerateIndexExpression(operation, context, i);
+        for (var i = 0; i < rank; ++i)
+        {
+            indicesExpression[i] = GenerateIndexExpression(operation, context, i);
+        }
 
         return ((ArrayExpr)referencedArray!, indicesExpression);
     }

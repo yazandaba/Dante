@@ -29,5 +29,5 @@ internal sealed class CallableDeclarationAdapter
     }
 
     public bool IsAnonymousLambda =>
-        _anonymousFunction is SimpleLambdaExpressionSyntax or ParenthesizedLambdaExpressionSyntax; 
+        _anonymousFunction is SimpleLambdaExpressionSyntax or ParenthesizedLambdaExpressionSyntax;
 }
