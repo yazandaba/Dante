@@ -663,18 +663,18 @@ Dante.exe -p path/to/project.csproj -c TargetClass -original OriginalMethod -tra
 
 ### Command Line Arguments
 
-| Argument               | Short | Required | Default     | Description                                                                                                                                                                            |
-|------------------------|-------|----------|-------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| project                | -p    | Yes      |             | Path to the target `.csproj` file.                                                                                                                                                     |
-| class                  | -c    | Yes      |             | Name of the non-partial target class containing the methods.                                                                                                                           |
-| original               |       | Yes      |             | Name of the original method (before transformation).                                                                                                                                   |
-| transformed            |       | Yes      |             | Name of the transformed method (after transformation).                                                                                                                                 |
-| debug                  | -d    | No       | `false`     | If `true`, dumps the generated SMTLIB2 code and any SMT solver models.                                                                                                                 |
-| highlight              |       | No       | `false`     | If `true`, applies syntax highlighting to the generated code and model output.                                                                                                         |
-| RecursionDepth         | -r    | No       | 1000        | The maximum depth for unfolding recursive constructs during abstract interpretation.                                                                                                   |
-| undeterministic-depth  | -u    | No       | `false`     | when true, the compiler will generate a random recursion depth at each evaluation point that use 'RecursionDepth' where 'RecursionDepth' is the maximum depth that can be generated.   |
-| Limit                  | -l    | No       | $10^8$      | The maximum number of operations Z3 can execute.                                                                                                                                       |
-| Timeout                | -t    | No       | 4294967295  | The maximum duration (in milliseconds) the solver is allowed for proving correctness or finding contradictions.                                                                        |
+| Argument              | Short | Required | Default     | Description                                                                                                                                                                            |
+|-----------------------|-------|----------|-------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| project               | -p    | Yes      |             | Path to the target `.csproj` file.                                                                                                                                                     |
+| class                 | -c    | Yes      |             | Name of the non-partial target class containing the methods.                                                                                                                           |
+| original              |       | Yes      |             | Name of the original method (before transformation).                                                                                                                                   |
+| transformed           |       | Yes      |             | Name of the transformed method (after transformation).                                                                                                                                 |
+| debug                 | -d    | No       | `false`     | If `true`, dumps the generated SMTLIB2 code and any SMT solver models.                                                                                                                 |
+| highlight             |       | No       | `false`     | If `true`, applies syntax highlighting to the generated code and model output.                                                                                                         |
+| recursion-depth       | -r    | No       | 1000        | The maximum depth for unfolding recursive constructs during abstract interpretation.                                                                                                   |
+| undeterministic-depth | -u    | No       | `false`     | when true, the compiler will generate a random recursion depth at each evaluation point that use 'RecursionDepth' where 'RecursionDepth' is the maximum depth that can be generated.   |
+| Limit                 | -l    | No       | $10^8$      | The maximum number of operations Z3 can execute.                                                                                                                                       |
+| Timeout               | -t    | No       | 4294967295  | The maximum duration (in milliseconds) the solver is allowed for proving correctness or finding contradictions.                                                                        |
 
 ---
 ## Current Limitations
