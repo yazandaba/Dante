@@ -665,6 +665,11 @@ internal sealed partial class ExpressionGenerator : OperationWalker<GenerationCo
             return default;
         }
 
+        if (operation.IsArrayLengthCall())
+        {
+            return context.RecursionDepth;
+        }
+
         if (operation.IsStringMethodCall(semantics)) return StringIntrinsics.AsStringMethodCall(operation, this);
 
         if (operation.IsHasValueNullableCall())

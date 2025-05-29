@@ -24,4 +24,14 @@ internal static class InvocationOperationExtension
         var dotnetEnumerable = semantics.Compilation.GetTypeByMetadataName("System.Linq.Enumerable");
         return invocation.TargetMethod.ContainingType.Equals(dotnetEnumerable, SymbolEqualityComparer.Default);
     }
+
+    public static bool IsArrayLengthCall(this IInvocationOperation invocation)
+    {
+        var method = invocation.TargetMethod;
+        return invocation.Instance?.Type is IArrayTypeSymbol
+               {
+                   ElementType.SpecialType: SpecialType.System_Int32 or SpecialType.System_Int64
+               } &&
+               method.Name is "Length" or "GetLength";
+    }
 }
