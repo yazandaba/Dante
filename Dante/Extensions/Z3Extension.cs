@@ -1,4 +1,4 @@
-using Dante.Generator;
+using Dante.Generators;
 using Microsoft.CodeAnalysis;
 using Microsoft.Z3;
 
@@ -86,13 +86,19 @@ internal static class Z3Extension
     {
         var lhsParams = lhs.Domain;
         var rhsParams = rhs.Domain;
-        if (lhsParams.Length != rhsParams.Length) return false;
+        if (lhsParams.Length != rhsParams.Length)
+        {
+            return false;
+        }
 
         for (var i = 0; i < lhsParams.Length; i++)
         {
             var lhsSort = lhsParams[i];
             var rhsSort = rhsParams[i];
-            if (lhsSort.Name != rhsSort.Name) return false;
+            if (lhsSort.Name != rhsSort.Name)
+            {
+                return false;
+            }
         }
 
         return true;

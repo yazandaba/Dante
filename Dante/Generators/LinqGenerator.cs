@@ -6,7 +6,7 @@ using Microsoft.CodeAnalysis.Operations;
 using Microsoft.Z3;
 using Enumerable = Dante.Intrinsics.Enumerable;
 
-namespace Dante.Generator;
+namespace Dante.Generators;
 
 internal partial class ExpressionGenerator
 {
@@ -34,7 +34,10 @@ internal partial class ExpressionGenerator
             .BeTrue("GenerateLinq must be called against verified linq expression");
         var linqBuilder = new Enumerable.LinqQueryBuilder();
         var linq = GenerateLinqCore(operation, context, semantics, linqBuilder) as DatatypeExpr;
-        if (linq is null) return linq;
+        if (linq is null)
+        {
+            return linq;
+        }
 
         return linqBuilder.Build();
     }

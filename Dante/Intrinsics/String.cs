@@ -1,6 +1,6 @@
 using Dante.Asserts;
 using Dante.Extensions;
-using Dante.Generator;
+using Dante.Generators;
 using FluentAssertions;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.Operations;
@@ -436,7 +436,11 @@ internal static class StringIntrinsics
         return Compare(lhsSubStr, rhsSubStr);
     }
 
-    private static IntExpr Compare(SeqExpr lhs, IntExpr lhsIndex, SeqExpr rhs, IntExpr rhsIndex, IntExpr length,
+    private static IntExpr Compare(SeqExpr lhs,
+        IntExpr lhsIndex,
+        SeqExpr rhs,
+        IntExpr rhsIndex,
+        IntExpr length,
         BoolExpr ignoreCase)
     {
         var lhsSubStr = Substring(lhs, lhsIndex, length);
@@ -554,7 +558,11 @@ internal static class StringIntrinsics
 
     private static FuncDecl DeclareOrGetToLowerFunc()
     {
-        if (_toLowerFunc is not null) return _toLowerFunc;
+        if (_toLowerFunc is not null)
+        {
+            return _toLowerFunc;
+        }
+
         var solverContext = GenerationContext.GetInstance().SolverContext;
         var stringSort = solverContext.StringSort;
         var intSort = solverContext.IntSort;
@@ -604,7 +612,10 @@ internal static class StringIntrinsics
 
     private static FuncDecl DeclareOrGetToUpperFunc()
     {
-        if (_toUpperFunc is not null) return _toUpperFunc;
+        if (_toUpperFunc is not null)
+        {
+            return _toUpperFunc;
+        }
 
         var solverContext = GenerationContext.GetInstance().SolverContext;
         var stringSort = solverContext.StringSort;
@@ -655,7 +666,10 @@ internal static class StringIntrinsics
 
     private static FuncDecl DeclareOrGetTrimBeginFunc()
     {
-        if (_trimBeginFunc is not null) return _trimBeginFunc;
+        if (_trimBeginFunc is not null)
+        {
+            return _trimBeginFunc;
+        }
 
         var solverContext = GenerationContext.GetInstance().SolverContext;
         var intSort = solverContext.IntSort;
@@ -697,7 +711,10 @@ internal static class StringIntrinsics
 
     private static FuncDecl DeclareOrGetTrimEndFunc()
     {
-        if (_trimEndFunc is not null) return _trimEndFunc;
+        if (_trimEndFunc is not null)
+        {
+            return _trimEndFunc;
+        }
 
         var solverContext = GenerationContext.GetInstance().SolverContext;
         var intSort = solverContext.IntSort;
@@ -739,7 +756,10 @@ internal static class StringIntrinsics
 
     private static FuncDecl DeclareOrGetTrimFunc()
     {
-        if (_trimFunc is not null) return _trimFunc;
+        if (_trimFunc is not null)
+        {
+            return _trimFunc;
+        }
 
         var solverContext = GenerationContext.GetInstance().SolverContext;
         var intSort = solverContext.IntSort;
@@ -757,7 +777,10 @@ internal static class StringIntrinsics
 
     private static FuncDecl DeclareOrGetLastIndexOf()
     {
-        if (_lastIndexOfFunc is not null) return _lastIndexOfFunc;
+        if (_lastIndexOfFunc is not null)
+        {
+            return _lastIndexOfFunc;
+        }
 
         var solverContext = GenerationContext.GetInstance().SolverContext;
         var intSort = solverContext.IntSort;
@@ -792,7 +815,10 @@ internal static class StringIntrinsics
 
     private static FuncDecl DeclareOrGetSplit()
     {
-        if (_splitFunc is not null) return _splitFunc;
+        if (_splitFunc is not null)
+        {
+            return _splitFunc;
+        }
 
         var solverContext = GenerationContext.GetInstance().SolverContext;
         var charSort = solverContext.CharSort;

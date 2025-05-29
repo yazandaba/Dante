@@ -11,7 +11,7 @@ using Microsoft.CodeAnalysis.FlowAnalysis;
 using Microsoft.Extensions.Logging;
 using Microsoft.Z3;
 
-namespace Dante.Generator;
+namespace Dante.Generators;
 
 internal sealed partial class FunctionGenerator
 {
@@ -32,7 +32,6 @@ internal sealed partial class FunctionGenerator
         ControlFlowGraph ownerMethodCfg,
         uint graphId)
     {
-        
         _genContext = FunctionGenerationContext.Create(ownerMethodCfg);
         _context = _genContext.SolverContext;
         var ownerCompilation = _genContext.Compilation;
@@ -44,7 +43,9 @@ internal sealed partial class FunctionGenerator
             new Dictionary<BasicBlock, BasicBlockInfo>(ownerMethodCfg.Blocks.Length,
                 ReferenceEqualityComparer.Instance);
         foreach (var parameter in ownerCallable.Parameters)
+        {
             GenerateFunctionParameter(parameter, _functionDefaultEvalTable);
+        }
 
         _livenessDataflowAnalyzer = new LivenessDataflowAnalyzer(
             ownerCallable,
@@ -67,7 +68,9 @@ internal sealed partial class FunctionGenerator
         GenerationContext sharedContext)
     {
         if (!originalMethod.HasSameParameters(transformedMethod))
+        {
             throw new NotSupportedException("methods being compared do not have same parameter types");
+        }
 
         var solverParameters = GeneratePropositionsArguments(originalMethod, sharedContext);
         var satExpr = !sharedContext.SolverContext.MkEq(
@@ -104,9 +107,11 @@ internal sealed partial class FunctionGenerator
     private FuncDecl GenerateBasicBlock(BasicBlock basicBlock)
     {
         if (WasGenerated(basicBlock, out var declaredBasicBlockFunc))
+        {
             return basicBlock.IsBooleanShortCircuitBlock(_ownerCallable)
                 ? GenerateShortCircuitedBasicBlock(basicBlock)
                 : declaredBasicBlockFunc;
+        }
 
         return GenerateBasicBlockWithoutRecursion(basicBlock);
     }
@@ -236,7 +241,10 @@ internal sealed partial class FunctionGenerator
             : basicBlock.ConditionalSuccessor!.Destination!;
 
         var successorFunc = GenerateBasicBlock(successor);
-        if (successorFunc.Arity is 0) return successorFunc.Apply();
+        if (successorFunc.Arity is 0)
+        {
+            return successorFunc.Apply();
+        }
 
         var arguments = GenerateBasicBlockFuncArgumentList(successor, evaluationTable);
         var callSuccessor = successorFunc.Apply(arguments);
@@ -254,9 +262,9 @@ internal sealed partial class FunctionGenerator
             {
                 //be more tolerant in release even if it means less optimized code
 #if RELEASE
-               ILocalSymbol local => GenerateFunctionLocal(local, evaluationTable, false),
-               IParameterSymbol parameter => GenerateFunctionParameter(parameter, evaluationTable, false),
-               _ => null
+                ILocalSymbol local => GenerateFunctionLocal(local, evaluationTable),
+                IParameterSymbol parameter => GenerateFunctionParameter(parameter, evaluationTable),
+                _ => null
 #else
                 ILocalSymbol local => GenerateFunctionLocal(local, evaluationTable, true),
                 IParameterSymbol parameter => GenerateFunctionParameter(parameter, evaluationTable, true),
@@ -272,7 +280,9 @@ internal sealed partial class FunctionGenerator
             {
                 var dependency = _generatedBlocks[targetBlock];
                 if (dependency.BasicBlockEvaluationTable.TryFetch(dependentOnSymbol, out Expr? dependencyValue))
+                {
                     arguments.Add(dependencyValue);
+                }
             }
         }
 
@@ -353,7 +363,11 @@ internal sealed partial class FunctionGenerator
 
     public static FuncDecl? DeclareFunctionFromMethod(IMethodSymbol method, GenerationContext context)
     {
-        if (context.GlobalEvaluationTable.TryFetch(method, out FuncDecl? func)) return func;
+        if (context.GlobalEvaluationTable.TryFetch(method, out FuncDecl? func))
+        {
+            return func;
+        }
+
         var returnType = method.ReturnType;
         if (returnType.IsVoid())
         {
@@ -376,7 +390,10 @@ internal sealed partial class FunctionGenerator
 
     private FuncDecl DeclareFunctionFromBasicBlock(BasicBlock basicBlock)
     {
-        if (_generatedBlocks.TryGetValue(basicBlock, out var basicBlockInfo)) return basicBlockInfo.GeneratedBasicBlock;
+        if (_generatedBlocks.TryGetValue(basicBlock, out var basicBlockInfo))
+        {
+            return basicBlockInfo.GeneratedBasicBlock;
+        }
 
         var basicBlockName = _basicBlockAnnotator.GenerateBlockName();
         var basicBlockLivenessAnalysis = _livenessDataflowAnalyzer.GetLivenessInfoOf(basicBlock);
@@ -421,8 +438,10 @@ internal sealed partial class FunctionGenerator
                                                         "non exit basic block");
 
         if (_generatedBlocks.TryGetValue(basicBlock, out var basicBlockInfo))
+        {
             return new ValueTuple<FuncDecl, FuncDecl>(basicBlockInfo.GeneratedBasicBlockImmediateDominator!,
                 basicBlockInfo.GeneratedBasicBlock);
+        }
 
         var immediateDominatorBlockFunc = DeclareFunctionFromBasicBlock(basicBlock);
         var basicBlockName = _basicBlockAnnotator.GenerateBlockName();
@@ -478,6 +497,7 @@ internal sealed partial class FunctionGenerator
         basicBlockInfo.Should().NotBeNull("fetching basic block info failed as basic block was not generated before");
         var evalTable = new SymbolEvaluationTable();
         foreach (var symbol in basicBlockInfo!.BasicBlockLexicalSymbols)
+        {
             switch (symbol)
             {
                 case ILocalSymbol local:
@@ -492,6 +512,7 @@ internal sealed partial class FunctionGenerator
                 default:
                     throw new UnreachableException();
             }
+        }
 
         basicBlockInfo.BasicBlockEvaluationTable = evalTable;
         return evalTable;

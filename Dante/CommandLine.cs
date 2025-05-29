@@ -7,7 +7,7 @@ namespace Dante;
 [Description("Fomral verification tool based on core Dante compiler")]
 [Serializable]
 [GeneratedParser]
-internal partial class DanteCommandLine
+internal partial class CommandLine
 {
     [CommandLineArgument("project", ShortName = 'p', IsRequired = true)]
     [Description("path to targeted csproj file.")]

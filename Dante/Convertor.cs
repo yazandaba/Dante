@@ -10,7 +10,10 @@ internal static class Convertor
     public static ArithExpr AsArithmeticExpression(Expr expression)
     {
         var context = expression.Context;
-        if (UnderlyingType.IsMaybe(expression)) expression = MaybeIntrinsics.Value((DatatypeExpr)expression);
+        if (UnderlyingType.IsMaybe(expression))
+        {
+            expression = MaybeIntrinsics.Value((DatatypeExpr)expression);
+        }
 
         return expression switch
         {
@@ -25,7 +28,11 @@ internal static class Convertor
     {
         var context = expression.Context;
         var ieee754Round = sortPool?.IEEE754Rounding ?? context.MkFPRoundNearestTiesToEven();
-        if (UnderlyingType.IsMaybe(expression)) expression = MaybeIntrinsics.Value((DatatypeExpr)expression);
+        if (UnderlyingType.IsMaybe(expression))
+        {
+            expression = MaybeIntrinsics.Value((DatatypeExpr)expression);
+        }
+
         return expression switch
         {
             FPExpr fpExpr => fpExpr,
@@ -35,12 +42,17 @@ internal static class Convertor
         };
     }
 
-    public static FPExpr AsFloatExpression(Expr expression, ITypeSymbol originalExpressionType,
+    public static FPExpr AsFloatExpression(Expr expression,
+        ITypeSymbol originalExpressionType,
         SortPool? sortPool = null)
     {
         var context = expression.Context;
         var ieee754Round = sortPool?.IEEE754Rounding ?? context.MkFPRoundNearestTiesToEven();
-        if (UnderlyingType.IsMaybe(expression)) expression = MaybeIntrinsics.Value((DatatypeExpr)expression);
+        if (UnderlyingType.IsMaybe(expression))
+        {
+            expression = MaybeIntrinsics.Value((DatatypeExpr)expression);
+        }
+
         var fpSort = originalExpressionType.SpecialType switch
         {
             SpecialType.System_Single => sortPool?.SingleSort ?? context.MkFPSort32(),
@@ -61,7 +73,11 @@ internal static class Convertor
     public static IntExpr AsIntegerExpression(Expr expression)
     {
         var context = expression.Context;
-        if (UnderlyingType.IsMaybe(expression)) expression = MaybeIntrinsics.Value((DatatypeExpr)expression);
+        if (UnderlyingType.IsMaybe(expression))
+        {
+            expression = MaybeIntrinsics.Value((DatatypeExpr)expression);
+        }
+
         return expression switch
         {
             IntExpr intExpr => intExpr,
@@ -75,7 +91,11 @@ internal static class Convertor
     public static SeqExpr AsStringExpression(Expr expression)
     {
         var context = expression.Context;
-        if (UnderlyingType.IsMaybe(expression)) expression = MaybeIntrinsics.Value((DatatypeExpr)expression);
+        if (UnderlyingType.IsMaybe(expression))
+        {
+            expression = MaybeIntrinsics.Value((DatatypeExpr)expression);
+        }
+
         return expression switch
         {
             SeqExpr seqExpr => seqExpr,

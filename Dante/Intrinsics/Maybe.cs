@@ -1,6 +1,6 @@
 using System.Runtime.CompilerServices;
 using Dante.Extensions;
-using Dante.Generator;
+using Dante.Generators;
 using FluentAssertions;
 using Microsoft.CodeAnalysis;
 using Microsoft.Z3;
@@ -58,7 +58,10 @@ internal static class MaybeIntrinsics
 
     public static Maybe CreateOrGet(ITypeSymbol typeParameter)
     {
-        if (InstantiationMap.TryGetValue(typeParameter, out var maybe)) return maybe;
+        if (InstantiationMap.TryGetValue(typeParameter, out var maybe))
+        {
+            return maybe;
+        }
 
         maybe = Maybe.Create(typeParameter);
         InstantiationMap[typeParameter] = maybe;

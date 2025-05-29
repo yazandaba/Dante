@@ -1,3 +1,4 @@
+using Dante.Generators;
 using FluentAssertions;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.FlowAnalysis;
@@ -23,7 +24,7 @@ internal class FlowCaptureEntry : FlowCaptureReferenceEntry
 /// </summary>
 /// <remarks>
 ///     instance of table will get used accross single or multiple basic blocks so it instance of it must be created
-///     per CFG generator i.e <see cref="Dante.Generator.FunctionGenerator" />
+///     per CFG generator i.e <see cref="FunctionGenerator" />
 /// </remarks>
 internal class FlowCaptureTable
 {
@@ -73,9 +74,14 @@ internal class FlowCaptureTable
 
         var referencedCapture = _flowCaptureTable[flowCaptureReferenceOperation.Id];
         while (referencedCapture.ReferencedFlowCapture is not null)
+        {
             referencedCapture = referencedCapture.ReferencedFlowCapture;
+        }
 
-        if (referencedCapture is FlowCaptureEntry flowCaptureEntry) return flowCaptureEntry;
+        if (referencedCapture is FlowCaptureEntry flowCaptureEntry)
+        {
+            return flowCaptureEntry;
+        }
 
         throw new InvalidOperationException(
             $"fetching captured expression starting from capture id '{referencedCaptureId}' is invalid , as there is " +

@@ -1,6 +1,6 @@
 using System.Diagnostics;
 using Dante.Extensions;
-using Dante.Generator;
+using Dante.Generators;
 using FluentAssertions;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
@@ -18,7 +18,10 @@ public readonly record struct VerificationResult()
     public bool Succeed { get; init; }
     public string SmtText { get; init; } = string.Empty;
 
-    public void Deconstruct(out bool succeed, out bool satisfiable, out string message, out string model,
+    public void Deconstruct(out bool succeed,
+        out bool satisfiable,
+        out string message,
+        out string model,
         out string smtText)
     {
         succeed = Succeed;
@@ -58,7 +61,10 @@ public class VerificationDriver
                                       $"to pass the right and full qualified name of type");
 
         var method = GetTargetedMethod(typeSymbol!, methodName);
-        if (method is null) return default;
+        if (method is null)
+        {
+            return default;
+        }
 
         var funcGenerator = FunctionGenerator.Create(method);
         return funcGenerator.Generate();
@@ -71,7 +77,10 @@ public class VerificationDriver
             _compilerStopwatch.Start();
             var originalFunc = GenerateMethod(entryTypeFullName, originalMethodName);
             var transformedFunc = GenerateMethod(entryTypeFullName, transformedMethodName);
-            if (originalFunc is null || transformedFunc is null) return default;
+            if (originalFunc is null || transformedFunc is null)
+            {
+                return default;
+            }
 
             var sat = FunctionGenerator.GenerateSatisfiabilityExpression(originalFunc, transformedFunc,
                 _generationContext);

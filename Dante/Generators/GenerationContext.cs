@@ -2,7 +2,7 @@ using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.FlowAnalysis;
 using Microsoft.Z3;
 
-namespace Dante.Generator;
+namespace Dante.Generators;
 
 internal record GenerationContext
 {
@@ -30,7 +30,7 @@ internal record GenerationContext
             RecursionDepth = solverContext.MkInt(recursionDepth),
             RandomDepth = randomDepth
         };
-        
+
         return _generationContext;
     }
 

@@ -96,7 +96,9 @@ internal class LivenessDataflowAnalyzer
     {
         if (_root.FallThroughSuccessor?.Destination is { Kind: BasicBlockKind.Exit })
             //empty CFG
+        {
             return;
+        }
 
         var executableEntry = _root.FallThroughSuccessor!.Destination!;
         var executableEntryLiveness = AnalyzeCore(executableEntry);
@@ -127,9 +129,15 @@ internal class LivenessDataflowAnalyzer
     private LivenessInfo AnalyzeCore(BasicBlock block)
     {
         //the block is already in the worklist so we are dealing with cycle 
-        if (_worklist.Contains(block)) return LivenessInfo.Default;
+        if (_worklist.Contains(block))
+        {
+            return LivenessInfo.Default;
+        }
 
-        if (_basicBlocksLivenessInfo.TryGetValue(block, out var livenessInfo)) return livenessInfo;
+        if (_basicBlocksLivenessInfo.TryGetValue(block, out var livenessInfo))
+        {
+            return livenessInfo;
+        }
 
         _worklist.Add(block);
         //basic block is just an empty block that has two successors 
@@ -236,6 +244,7 @@ internal class LivenessDataflowAnalyzer
 
         LivenessInfo currentBlockLiveness;
         if (includeDependencies)
+        {
             if (mayDependencyLocals.Count > 0)
             {
                 blockLiveIn = blockLiveIn.Union(mayDependencyLocals);
@@ -251,6 +260,7 @@ internal class LivenessDataflowAnalyzer
                 _basicBlocksLivenessInfo.Add(block, currentBlockLiveness);
                 return currentBlockLiveness;
             }
+        }
 
         currentBlockLiveness = new LivenessInfo
         {
@@ -267,9 +277,14 @@ internal class LivenessDataflowAnalyzer
         IReadOnlyList<CSharpSyntaxNode> region)
     {
         if (region.Count is not 1 || region[0] is not ForStatementSyntax { Declaration: not null } forLoop)
+        {
             return (dependencies: ImmutableHashSet<ISymbol>.Empty, isDeclBlock: false);
+        }
 
-        if (_dependencyLocals.TryGetValue(forLoop, out var dependencies)) return (dependencies, false);
+        if (_dependencyLocals.TryGetValue(forLoop, out var dependencies))
+        {
+            return (dependencies, false);
+        }
 
         var forLoopDecl = forLoop.Declaration!;
         dependencies = block.Operations
@@ -299,7 +314,9 @@ file class FlowInAnalyzer
     public LivenessInfo Analyze(BasicBlock block)
     {
         if (_worklist.Contains(block) && _basicBlocksLivenessInfo.TryGetValue(block, out var livenessInfo))
+        {
             return livenessInfo;
+        }
 
         _worklist.Add(block);
         if (LivenessAnalysisHelper.IsBinaryFlowOnlyBlock(block) ||
@@ -398,9 +415,15 @@ file static class LivenessAnalysisHelper
         }
 
         var scope = statement.FirstAncestorOrSelf<StatementSyntax>(s => !ReferenceEquals(s, statement));
-        if (scope is null) return [];
+        if (scope is null)
+        {
+            return [];
+        }
 
-        if (scope is not BlockSyntax scopeBlock) return [scope];
+        if (scope is not BlockSyntax scopeBlock)
+        {
+            return [scope];
+        }
 
         var statements = scopeBlock.Statements;
         var baseStatementLoc = statements.IndexOf(statement);
@@ -409,7 +432,11 @@ file static class LivenessAnalysisHelper
 
         var region = new StatementSyntax[statements.Count - baseStatementLoc];
         region[0] = statement;
-        for (var i = 1; i < region.Length; ++i) region[i] = statements[i + baseStatementLoc];
+        for (var i = 1; i < region.Length; ++i)
+        {
+            region[i] = statements[i + baseStatementLoc];
+        }
+
         return region;
     }
 }

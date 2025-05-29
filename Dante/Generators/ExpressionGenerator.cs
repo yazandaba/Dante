@@ -12,7 +12,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Z3;
 using Enumerable = Dante.Intrinsics.Enumerable;
 
-namespace Dante.Generator;
+namespace Dante.Generators;
 
 internal sealed partial class ExpressionGenerator : OperationWalker<GenerationContext>
 {
@@ -20,7 +20,7 @@ internal sealed partial class ExpressionGenerator : OperationWalker<GenerationCo
     private readonly SymbolEvaluationTable _owningBasicBlockSymbolEvalTable;
     private readonly FlowCaptureTable _owningControlFlowGraphFlowCaptureTable;
     private readonly ImmutableDictionary<string, Expr> _owningBasicBlockParameters;
-    
+
     public ExpressionGenerator(
         SymbolEvaluationTable owningBasicBlockSymbolEvalTable,
         FlowCaptureTable owningControlFlowGraphFlowCaptureTable)
@@ -95,7 +95,10 @@ internal sealed partial class ExpressionGenerator : OperationWalker<GenerationCo
         var conversionType = operation.Type!;
         if (conversion.IsNullable)
         {
-            if (UnderlyingType.IsMaybe(convertedExpr)) return convertedOperand!;
+            if (UnderlyingType.IsMaybe(convertedExpr))
+            {
+                return convertedOperand!;
+            }
 
             var maybe = MaybeIntrinsics.CreateOrGet(conversionType.AsNonNullableType());
             return MaybeIntrinsics.Some(maybe, convertedExpr);
@@ -103,14 +106,24 @@ internal sealed partial class ExpressionGenerator : OperationWalker<GenerationCo
 
         if (conversion.IsNumeric)
         {
-            if (conversionType.IsIntegral()) return Convertor.AsArithmeticExpression(convertedOperand!);
+            if (conversionType.IsIntegral())
+            {
+                return Convertor.AsArithmeticExpression(convertedOperand!);
+            }
 
-            if (conversionType.IsFloatingPoint()) return Convertor.AsFloatExpression(convertedOperand!, conversionType);
+            if (conversionType.IsFloatingPoint())
+            {
+                return Convertor.AsFloatExpression(convertedOperand!, conversionType);
+            }
         }
 
         if (conversionType.IsEnumerable())
+        {
             if (operation.Operand.Type is IArrayTypeSymbol arrayType && convertedExpr is ArrayExpr arrayExpr)
+            {
                 return Enumerable.CreateOrGet(arrayType, arrayExpr);
+            }
+        }
 
         return convertedOperand!;
     }
@@ -248,17 +261,25 @@ internal sealed partial class ExpressionGenerator : OperationWalker<GenerationCo
         return GenerateBinaryExpression(operation, (Expr)lhs!, (Expr)rhs!, context);
     }
 
-    private Expr GenerateBinaryExpression(IBinaryOperation binaryExpression, Expr lhs, Expr rhs,
+    private Expr GenerateBinaryExpression(IBinaryOperation binaryExpression,
+        Expr lhs,
+        Expr rhs,
         GenerationContext context)
     {
         if (binaryExpression.IsRelationalExpression())
+        {
             return GenerateRelationalExpression(binaryExpression, lhs, rhs, context);
+        }
 
         if (binaryExpression.IsLogicalExpression())
+        {
             return GenerateLogicalExpression(binaryExpression, lhs, rhs, context);
+        }
 
         if (binaryExpression.IsArithmeticOrBitwiseExpression())
+        {
             return GenerateArithmeticOrBitwiseExpression(binaryExpression, lhs, rhs, context);
+        }
 
         throw new UnreachableException();
     }
@@ -266,8 +287,7 @@ internal sealed partial class ExpressionGenerator : OperationWalker<GenerationCo
 
     #region LogicalAndRelational
 
-    private BoolExpr GenerateLogicalExpression(
-        IBinaryOperation binaryExpression,
+    private BoolExpr GenerateLogicalExpression(IBinaryOperation binaryExpression,
         Expr lhs,
         Expr rhs,
         GenerationContext context)
@@ -297,12 +317,14 @@ internal sealed partial class ExpressionGenerator : OperationWalker<GenerationCo
         {
             return GenerateNullableEquality(binaryExpression, lhs, rhs, context);
         }
-        
+
         //generate string equality expression
         if (leftOprType.IsString() && rightOprType.IsString() && binaryExpression.IsEqualityExpression())
+        {
             return binaryExpression.OperatorKind is BinaryOperatorKind.Equals
                 ? context.SolverContext.MkEq(lhs, rhs)
                 : !context.SolverContext.MkEq(lhs, rhs);
+        }
 
         var sortPool = context.SortPool;
         switch (binOperationType.SpecialType)
@@ -311,7 +333,7 @@ internal sealed partial class ExpressionGenerator : OperationWalker<GenerationCo
             {
                 var leftExpr = Convertor.AsArithmeticExpression(lhs);
                 var rightExpr = Convertor.AsArithmeticExpression(rhs);
-                return GenerateNormalRelationalExpression(binaryExpression, leftExpr, rightExpr, context);
+                return GenerateRealRelationalExpression(binaryExpression, leftExpr, rightExpr, context);
             }
             case SpecialType.System_Single:
             {
@@ -347,18 +369,26 @@ internal sealed partial class ExpressionGenerator : OperationWalker<GenerationCo
         if (binaryExpression.OperatorKind is BinaryOperatorKind.Equals) //expr == null
         {
             if (binaryExpression.LeftOperand.IsNullLiteralOperation() && rhs is DatatypeExpr maybeRhs)
+            {
                 return MaybeIntrinsics.IsNull(maybeRhs);
+            }
 
             if (binaryExpression.RightOperand.IsNullLiteralOperation() && lhs is DatatypeExpr maybeLhs)
+            {
                 return MaybeIntrinsics.IsNull(maybeLhs);
+            }
         }
         else //expr != null
         {
             if (binaryExpression.LeftOperand.IsNullLiteralOperation() && rhs is DatatypeExpr maybeRhs)
+            {
                 return MaybeIntrinsics.HasValue(maybeRhs);
+            }
 
             if (binaryExpression.RightOperand.IsNullLiteralOperation() && lhs is DatatypeExpr maybeLhs)
+            {
                 return MaybeIntrinsics.HasValue(maybeLhs);
+            }
         }
 
         Logger.LogError("Equality expression '{expression}' was analyzed as being null equality comparison but " +
@@ -369,7 +399,7 @@ internal sealed partial class ExpressionGenerator : OperationWalker<GenerationCo
             : !context.SolverContext.MkEq(lhs, rhs);
     }
 
-    private BoolExpr GenerateNormalRelationalExpression(
+    private BoolExpr GenerateRealRelationalExpression(
         IBinaryOperation binaryExpression,
         ArithExpr lhs,
         ArithExpr rhs,
@@ -411,7 +441,9 @@ internal sealed partial class ExpressionGenerator : OperationWalker<GenerationCo
 
     #region ArithmeticAndBitwise
 
-    private Expr GenerateArithmeticOrBitwiseExpression(IOperation expression, Expr lhs, Expr rhs,
+    private Expr GenerateArithmeticOrBitwiseExpression(IOperation expression,
+        Expr lhs,
+        Expr rhs,
         GenerationContext context)
     {
         return GenerateArithmeticOrBitwiseExpressionCore(expression, lhs, rhs, context);
@@ -590,7 +622,10 @@ internal sealed partial class ExpressionGenerator : OperationWalker<GenerationCo
         var field = operation.Field;
         var fieldFullName = field.ToDisplayString();
         var solverContext = context.SolverContext;
-        if (context.GlobalEvaluationTable.TryFetch(field, out Expr? value)) return value;
+        if (context.GlobalEvaluationTable.TryFetch(field, out Expr? value))
+        {
+            return value;
+        }
 
         var fieldDecl = solverContext.MkConstDecl(fieldFullName, field.Type.AsSort());
         var fieldRefExpr = fieldDecl.Apply();
@@ -601,7 +636,10 @@ internal sealed partial class ExpressionGenerator : OperationWalker<GenerationCo
     public override FuncDecl VisitMethodReference(IMethodReferenceOperation operation, GenerationContext context)
     {
         var method = operation.Method;
-        if (context.GlobalEvaluationTable.TryFetch(method, out FuncDecl? funcDecl)) return funcDecl;
+        if (context.GlobalEvaluationTable.TryFetch(method, out FuncDecl? funcDecl))
+        {
+            return funcDecl;
+        }
 
         funcDecl = FunctionGenerator.DeclareFunctionFromMethod(method, context);
         return funcDecl!;
@@ -612,7 +650,10 @@ internal sealed partial class ExpressionGenerator : OperationWalker<GenerationCo
         var property = operation.Property;
         var propertyFullName = property.ToDisplayString();
         var propertyFuncSort = property.Type.AsSort();
-        if (operation.IsArrayLength()) return context.RecursionDepth;
+        if (operation.IsArrayLength())
+        {
+            return context.RecursionDepth;
+        }
 
         //if property getter was not auto generated by the compiler aka auto property, then we should invoke the getter
         if (property.WasSourceDeclared())
@@ -621,7 +662,10 @@ internal sealed partial class ExpressionGenerator : OperationWalker<GenerationCo
             if (propertyGetter is not null)
             {
                 var fetched = context.GlobalEvaluationTable.TryFetch(propertyGetter, out Expr? propertyGetterCall);
-                if (fetched) return propertyGetterCall!;
+                if (fetched)
+                {
+                    return propertyGetterCall!;
+                }
 
                 var propertyGetterDecl = FunctionGenerator.DeclareFunctionFromMethod(propertyGetter, context);
                 propertyGetterCall = propertyGetterDecl!.Apply();
@@ -629,7 +673,10 @@ internal sealed partial class ExpressionGenerator : OperationWalker<GenerationCo
             }
         }
 
-        if (context.GlobalEvaluationTable.TryFetch(property, out Expr? propertyRefExpr)) return propertyRefExpr;
+        if (context.GlobalEvaluationTable.TryFetch(property, out Expr? propertyRefExpr))
+        {
+            return propertyRefExpr;
+        }
 
         var propertyFuncDecl = context.SolverContext.MkConstDecl(propertyFullName, propertyFuncSort);
         propertyRefExpr = propertyFuncDecl.Apply();
@@ -670,7 +717,10 @@ internal sealed partial class ExpressionGenerator : OperationWalker<GenerationCo
             return context.RecursionDepth;
         }
 
-        if (operation.IsStringMethodCall(semantics)) return StringIntrinsics.AsStringMethodCall(operation, this);
+        if (operation.IsStringMethodCall(semantics))
+        {
+            return StringIntrinsics.AsStringMethodCall(operation, this);
+        }
 
         if (operation.IsHasValueNullableCall())
         {
@@ -680,7 +730,10 @@ internal sealed partial class ExpressionGenerator : OperationWalker<GenerationCo
             return MaybeIntrinsics.HasValue(genInstance!);
         }
 
-        if (operation.IsEnumerableCall(semantics)) return GenerateLinq(operation, context, semantics);
+        if (operation.IsEnumerableCall(semantics))
+        {
+            return GenerateLinq(operation, context, semantics);
+        }
 
         var funcArguments = operation
             .Arguments
@@ -699,7 +752,10 @@ internal sealed partial class ExpressionGenerator : OperationWalker<GenerationCo
         FuncDecl? func;
         if (operation.TargetMethod.WasSourceDeclared())
         {
-            if (context.GlobalEvaluationTable.TryFetch(invokedMethod, out func)) return func.Apply(funcArguments);
+            if (context.GlobalEvaluationTable.TryFetch(invokedMethod, out func))
+            {
+                return func.Apply(funcArguments);
+            }
 
             var funcGenerator = FunctionGenerator.Create(invokedMethod.GetDeclaration());
             func = funcGenerator.Generate();
@@ -718,7 +774,10 @@ internal sealed partial class ExpressionGenerator : OperationWalker<GenerationCo
         var type = operation.Type;
         var literalValOpt = operation.ConstantValue;
         literalValOpt.HasValue.Should().BeTrue("literal must be a const value");
-        if (operation.IsNullableLiteral()) return operation.AsDefaultMaybeExpression();
+        if (operation.IsNullableLiteral())
+        {
+            return operation.AsDefaultMaybeExpression();
+        }
 
         type.Should().NotBeNull($"type of literal '{((CSharpSyntaxNode)operation.Syntax).GetSyntaxNodeText()}' " +
                                 $"could not be deduced");
@@ -748,7 +807,9 @@ internal sealed partial class ExpressionGenerator : OperationWalker<GenerationCo
     {
         var local = operation.Local;
         if (_owningBasicBlockParameters.TryGetValue(local.Name, out var basicBlockParameterSymbolExpr))
+        {
             return basicBlockParameterSymbolExpr;
+        }
 
         //variable being referenced after being checked it is not null,
         //Type of captured local reference operation is guaranteed to produce non nullable expression if and only if

@@ -31,7 +31,11 @@ internal class SExpressionHighlighter : ISyntaxVisitor
     {
         try
         {
-            if (string.IsNullOrWhiteSpace(code)) return;
+            if (string.IsNullOrWhiteSpace(code))
+            {
+                return;
+            }
+
             var tree = new SParser(code).Parse();
             tree.Accept(this);
         }
@@ -77,18 +81,27 @@ internal class SExpressionHighlighter : ISyntaxVisitor
             ConsoleColor color;
 
             if (identifier.StartsWith("BB"))
+            {
                 color = ConsoleColor.White;
+            }
 
             else if (identifier.StartsWith("Enumerable_"))
+            {
                 color = ConsoleColor.Magenta;
+            }
 
             else if (identifierType is TokenType.Operator)
+            {
                 color = ConsoleColor.White;
+            }
 
             else if (identifierType is TokenType.StringLiteral)
+            {
                 color = ConsoleColor.DarkYellow;
+            }
 
             else
+            {
                 color = identifier switch
                 {
                     "model-add" => ConsoleColor.White,
@@ -96,11 +109,15 @@ internal class SExpressionHighlighter : ISyntaxVisitor
                     "ite" => ConsoleColor.White,
                     _ => ConsoleColor.DarkBlue
                 };
+            }
 
             Print(color, id.Value);
         }
 
-        foreach (var sExpression in node.Arguments) sExpression.Accept(this);
+        foreach (var sExpression in node.Arguments)
+        {
+            sExpression.Accept(this);
+        }
     }
 
     public void Visit(SFunctionDeclarationsSyntax node)
@@ -109,7 +126,11 @@ internal class SExpressionHighlighter : ISyntaxVisitor
         {
             var parenthesesColor = ColorSelecter.SelectColor();
             Print(parenthesesColor, node.Begin);
-            foreach (var function in node.Functions) function.Accept(this);
+            foreach (var function in node.Functions)
+            {
+                function.Accept(this);
+            }
+
             Print(parenthesesColor, node.End);
             node.Bodies.Accept(this);
         }
@@ -142,7 +163,11 @@ internal class SExpressionHighlighter : ISyntaxVisitor
         {
             var parenthesesColor = ColorSelecter.SelectColor();
             Print(parenthesesColor, node.Begin);
-            foreach (var parameter in node.Parameters) parameter.Accept(this);
+            foreach (var parameter in node.Parameters)
+            {
+                parameter.Accept(this);
+            }
+
             Print(parenthesesColor, node.End);
         }
         finally
@@ -195,7 +220,11 @@ internal class SExpressionHighlighter : ISyntaxVisitor
             var parenthesesColor = ColorSelecter.SelectColor();
             Print(parenthesesColor, node.Begin);
             Print(ConsoleColor.DarkBlue, node.Identifier);
-            foreach (var sTypeSyntax in node.Domain) sTypeSyntax.Accept(this);
+            foreach (var sTypeSyntax in node.Domain)
+            {
+                sTypeSyntax.Accept(this);
+            }
+
             node.Range.Accept(this);
             Print(parenthesesColor, node.End);
         }
@@ -216,7 +245,11 @@ internal class SExpressionHighlighter : ISyntaxVisitor
             Print(typeIdParenthesesColor, node.TypeIdentifierBegin);
             Print(ConsoleColor.DarkMagenta, node.Identifier);
             var typeParamPlaceholderToken = node.TypeParameterPlaceholder;
-            if (typeParamPlaceholderToken is not null) Print(ConsoleColor.Magenta, typeParamPlaceholderToken.Value);
+            if (typeParamPlaceholderToken is not null)
+            {
+                Print(ConsoleColor.Magenta, typeParamPlaceholderToken.Value);
+            }
+
             Print(typeIdParenthesesColor, node.TypeIdentifierEnd);
             Print(parenthesesColor, node.End);
             //print type ctor's
@@ -435,7 +468,7 @@ internal class SLexer
 
         return auxiliaryBuilder.ToString();
     }
-    
+
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static bool IsIdentifierLegalChar(char ch)
@@ -608,8 +641,10 @@ internal class SParser
         var parameters = ParseSParameters();
         var returnType = ParseSType();
         if (optBegin.Type is not TokenType.LeftParenthesis)
+        {
             return new SFunctionDeclarationSyntax
                 { Identifier = funcId, Parameters = parameters, ReturnType = returnType };
+        }
 
         var end = _lexer.CurrentToken();
         _lexer.NextToken();
@@ -665,7 +700,11 @@ internal class SParser
                 while (token.Type is TokenType.Identifier)
                 {
                     token = _lexer.PeekToken();
-                    if (token.Type is TokenType.RightParenthesis) break;
+                    if (token.Type is TokenType.RightParenthesis)
+                    {
+                        break;
+                    }
+
                     domains.Add(new STypeSyntax { Identifier = token });
                     token = _lexer.NextToken();
                 }
