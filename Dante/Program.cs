@@ -35,7 +35,9 @@ public static class Program
             var verificationDriver = new VerificationDriver(compilation,
                 arguments.Timeout,
                 arguments.RecursionDepth,
-                arguments.Limit);
+                arguments.Limit,
+                arguments.RandomDepth);
+            
             var (succeed, satisfiable, message, model, smtText) =
                 verificationDriver.Verify(arguments.Class, arguments.Original, arguments.Transformed);
 

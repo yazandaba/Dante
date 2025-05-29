@@ -37,6 +37,11 @@ internal partial class DanteCommandLine
     [Description("the maximum number of recursive constructs depth when abstractlly intepreteated.")]
     public uint RecursionDepth { get; set; }
 
+    [CommandLineArgument("undeterministic-depth", ShortName = 'u', DefaultValue = false, IsRequired = false)]
+    [Description("when true, the compiler will generate a random recursion depth at each evaluation point" +
+                 "that use 'RecursionDepth' where 'RecursionDepth' is the maximum depth that can be generated.")]
+    public bool RandomDepth { get; set; }
+
     [CommandLineArgument("Limit", ShortName = 'l', DefaultValue = 1_000_000_00, IsRequired = false)]
     [Description("the maximum number of operations that can be executed by Z3.")]
     public uint Limit { get; set; }
