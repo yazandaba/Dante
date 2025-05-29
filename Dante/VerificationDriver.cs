@@ -36,13 +36,17 @@ public class VerificationDriver
     private readonly Stopwatch _compilerStopwatch = new();
     private readonly Stopwatch _solverStopwatch = new();
 
-    public VerificationDriver(CSharpCompilation compilation, uint timeout, uint recursionDepth, uint rlimit)
+    public VerificationDriver(CSharpCompilation compilation,
+        uint timeout,
+        uint recursionDepth,
+        uint rlimit,
+        bool randomDepth)
     {
         var solverContext = new Context();
         solverContext.UpdateParamValue("proof", "true");
         solverContext.UpdateParamValue("timeout", timeout.ToString());
         solverContext.UpdateParamValue("rlimit", rlimit.ToString());
-        _generationContext = GenerationContext.CreateOrGet(solverContext, compilation, recursionDepth);
+        _generationContext = GenerationContext.CreateOrGet(solverContext, compilation, recursionDepth, randomDepth);
         _logger = LoggerFactory.Create<VerificationDriver>();
     }
 

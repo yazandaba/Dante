@@ -7,23 +7,30 @@ namespace Dante.Generator;
 internal record GenerationContext
 {
     private IntExpr? _recursionDepth;
+    private readonly Random _randomDepthGenerator = new();
+
+    private static uint _recursionDepthCore;
     private static GenerationContext? _generationContext;
 
     protected GenerationContext()
     {
     }
 
-    public static GenerationContext CreateOrGet(Context solverContext, CSharpCompilation compilation,
-        uint recursionDepth)
+    public static GenerationContext CreateOrGet(Context solverContext,
+        CSharpCompilation compilation,
+        uint recursionDepth,
+        bool randomDepth)
     {
-        _generationContext ??= new GenerationContext
+        _recursionDepthCore = recursionDepth;
+        _generationContext = new GenerationContext
         {
             SolverContext = solverContext,
             SortPool = new SortPool(solverContext),
             Compilation = compilation,
-            RecursionDepth = solverContext.MkInt(recursionDepth)
+            RecursionDepth = solverContext.MkInt(recursionDepth),
+            RandomDepth = randomDepth
         };
-
+        
         return _generationContext;
     }
 
@@ -57,9 +64,30 @@ internal record GenerationContext
     /// </remarks>
     public IntExpr RecursionDepth
     {
-        get => _recursionDepth ??= SolverContext.MkInt(1000);
+        get
+        {
+            if (_recursionDepth is null)
+            {
+                return _recursionDepth = SolverContext.MkInt(1000);
+            }
+
+            if (RandomDepth)
+            {
+                return _recursionDepth = SolverContext.MkInt(_randomDepthGenerator.Next() % _recursionDepthCore);
+            }
+
+            return _recursionDepth;
+        }
         init => _recursionDepth = value;
     }
+
+    /// <summary>
+    ///     if set to true, each time <see cref="RecursionDepth" /> is called a random depth will get generated
+    /// </summary>
+    /// <remarks>
+    ///     the maximum random depth must be less or equal to <see cref="RecursionDepth" />
+    /// </remarks>
+    public bool RandomDepth { get; init; }
 }
 
 internal record FunctionGenerationContext : GenerationContext
@@ -76,7 +104,8 @@ internal record FunctionGenerationContext : GenerationContext
             SortPool = genContext.SortPool,
             Compilation = genContext.Compilation,
             TargetControlFlowGraph = targetControlFlowGraph,
-            RecursionDepth = genContext.RecursionDepth
+            RecursionDepth = genContext.RecursionDepth,
+            RandomDepth = genContext.RandomDepth
         };
     }
 }
