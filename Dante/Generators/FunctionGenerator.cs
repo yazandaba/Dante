@@ -260,16 +260,9 @@ internal sealed partial class FunctionGenerator
         {
             var argument = dependentOnSymbol switch
             {
-                //be more tolerant in release even if it means less optimized code
-#if RELEASE
-                ILocalSymbol local => GenerateFunctionLocal(local, evaluationTable),
-                IParameterSymbol parameter => GenerateFunctionParameter(parameter, evaluationTable),
-                _ => null
-#else
                 ILocalSymbol local => GenerateFunctionLocal(local, evaluationTable, true),
                 IParameterSymbol parameter => GenerateFunctionParameter(parameter, evaluationTable, true),
                 _ => null
-#endif
             };
 
             if (argument is not null)
