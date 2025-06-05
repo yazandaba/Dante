@@ -19,7 +19,6 @@ internal readonly struct LivenessInfo : IEquatable<LivenessInfo>
     public ImmutableHashSet<ISymbol> LiveOut { get; init; } = ImmutableHashSet<ISymbol>.Empty;
     public ImmutableHashSet<ISymbol> LiveIn { get; init; } = ImmutableHashSet<ISymbol>.Empty;
     public ImmutableHashSet<ISymbol> RegionLocals { get; init; } = ImmutableHashSet<ISymbol>.Empty;
-    public ImmutableHashSet<ISymbol> FlowIn { get; init; } = ImmutableHashSet<ISymbol>.Empty;
 
     public LivenessInfo()
     {
@@ -74,7 +73,6 @@ internal class LivenessDataflowAnalyzer
     ///     (more precisely, from its immediate dominator).
     /// </remarks>
     private readonly DependencyLocals _dependencyLocals;
-
     private readonly HashSet<BasicBlock> _worklist;
     private readonly SemanticModel _semantics;
     private readonly BasicBlock _root;
@@ -101,7 +99,7 @@ internal class LivenessDataflowAnalyzer
         }
 
         var executableEntry = _root.FallThroughSuccessor!.Destination!;
-        var executableEntryLiveness = AnalyzeCore(executableEntry);
+        var executableEntryLiveness = AnalyzePartial(executableEntry);
         var entryLiveness = new LivenessInfo
         {
             BasicBlock = _root,
@@ -109,11 +107,12 @@ internal class LivenessDataflowAnalyzer
             LiveOut = executableEntryLiveness.LiveIn
         };
         _basicBlocksLivenessInfo.Add(_root, entryLiveness);
-        var flowInAnalyzer = new FlowInAnalyzer(_basicBlocksLivenessInfo);
-        flowInAnalyzer.Analyze(_root);
-
+        _worklist.Clear(); //start the second pass of the analysis with empty worklist
+        AnalyzeComplete(_root);
+        
         //so GC can cleanup the entries 
         _dependencyLocals.Clear();
+        _worklist.Clear();
     }
 
     public LivenessInfo GetLivenessInfoOf(BasicBlock block)
@@ -126,7 +125,7 @@ internal class LivenessDataflowAnalyzer
         return livenessInfo;
     }
 
-    private LivenessInfo AnalyzeCore(BasicBlock block)
+    private LivenessInfo AnalyzePartial(BasicBlock block)
     {
         //the block is already in the worklist so we are dealing with cycle 
         if (_worklist.Contains(block))
@@ -146,12 +145,12 @@ internal class LivenessDataflowAnalyzer
         {
             var fallthrough = block.FallThroughSuccessor!.Destination!;
             var conditional = block.ConditionalSuccessor?.Destination!;
-            var fallthroughLiveness = fallthrough.Kind is BasicBlockKind.Exit
-                ? LivenessInfo.Default
-                : AnalyzeCore(fallthrough);
             var conditionalLiveness = fallthrough.Kind is BasicBlockKind.Exit
                 ? LivenessInfo.Default
-                : AnalyzeCore(conditional);
+                : AnalyzePartial(conditional);
+            var fallthroughLiveness = fallthrough.Kind is BasicBlockKind.Exit
+                ? LivenessInfo.Default
+                : AnalyzePartial(fallthrough);
             var region = GetPossibleRegionOfBranchingOnlyBlock(block);
             var analysis = AnalyzeDataFlowOfRegion(region);
             analysis.Should().NotBeNull();
@@ -163,12 +162,12 @@ internal class LivenessDataflowAnalyzer
         {
             var fallthrough = block.FallThroughSuccessor!.Destination!;
             var conditional = block.ConditionalSuccessor?.Destination!;
-            var fallthroughLiveness = fallthrough.Kind is BasicBlockKind.Exit
-                ? LivenessInfo.Default
-                : AnalyzeCore(fallthrough);
             var conditionalLiveness = fallthrough.Kind is BasicBlockKind.Exit
                 ? LivenessInfo.Default
-                : AnalyzeCore(conditional);
+                : AnalyzePartial(conditional);
+            var fallthroughLiveness = fallthrough.Kind is BasicBlockKind.Exit
+                ? LivenessInfo.Default
+                : AnalyzePartial(fallthrough);
             var operationSyntax = LivenessAnalysisHelper.GetFirstRelevantOperationInBlock(block);
             var region = LivenessAnalysisHelper.GetRegionOf(operationSyntax);
             var analysis = AnalyzeDataFlowOfRegion(region);
@@ -183,7 +182,7 @@ internal class LivenessDataflowAnalyzer
             var region = LivenessAnalysisHelper.GetRegionOf(operationSyntax);
             //we extract for loop declaration here then later in the CFG they can reuse it as dependency
             var (_, isDeclaratorBlock) = GetForLoopVariableDeclarations(block, region);
-            var successorLiveness = AnalyzeCore(block.FallThroughSuccessor!.Destination!);
+            var successorLiveness = AnalyzePartial(block.FallThroughSuccessor!.Destination!);
             var analysis = AnalyzeDataFlowOfRegion(region);
             analysis.Should().NotBeNull();
             analysis.Succeeded.Should().BeTrue();
@@ -193,9 +192,73 @@ internal class LivenessDataflowAnalyzer
 
         if (LivenessAnalysisHelper.IsFallthroughOnlyBlock(block))
         {
-            var fallthroughLiveness = AnalyzeCore(block.FallThroughSuccessor!.Destination!);
+            var fallthroughLiveness = AnalyzePartial(block.FallThroughSuccessor!.Destination!);
             _basicBlocksLivenessInfo.Add(block, fallthroughLiveness);
             return fallthroughLiveness;
+        }
+
+        throw new UnreachableException();
+    }
+
+    private LivenessInfo AnalyzeComplete(BasicBlock block)
+    {
+        if (_worklist.Contains(block) && _basicBlocksLivenessInfo.TryGetValue(block, out var livenessInfo))
+        {
+            return livenessInfo;
+        }
+
+        _worklist.Add(block);
+        if (LivenessAnalysisHelper.IsBinaryFlowOnlyBlock(block) ||
+            LivenessAnalysisHelper.IsBranchingExecutableBlock(block))
+        {
+            var blockLiveness = _basicBlocksLivenessInfo[block];
+            var conditional = block.ConditionalSuccessor?.Destination!;
+            var fallthrough = block.FallThroughSuccessor!.Destination!;
+            var conditionalLiveness =
+                fallthrough.Kind is BasicBlockKind.Exit ? LivenessInfo.Default : AnalyzeComplete(conditional);
+
+            var partialLiveness = blockLiveness with
+            {
+                LiveIn = blockLiveness.LiveIn
+                    .Union(conditionalLiveness.LiveIn)
+                    .Except(blockLiveness.RegionLocals),
+
+                LiveOut = blockLiveness.LiveOut
+                    .Union(conditionalLiveness.LiveOut)
+                    .Except(blockLiveness.RegionLocals)
+            };
+            _basicBlocksLivenessInfo[block] = partialLiveness;
+
+            var fallthroughLiveness =
+                fallthrough.Kind is BasicBlockKind.Exit ? LivenessInfo.Default : AnalyzeComplete(fallthrough);
+            var completeLiveness = partialLiveness with
+            {
+                LiveIn = partialLiveness.LiveIn
+                    .Union(fallthroughLiveness.LiveIn)
+                    .Union(conditionalLiveness.LiveIn)
+                    .Except(partialLiveness.RegionLocals),
+
+                LiveOut = partialLiveness.LiveOut
+                    .Union(fallthroughLiveness.LiveOut)
+                    .Union(conditionalLiveness.LiveOut)
+                    .Except(partialLiveness.RegionLocals)
+            };
+            _basicBlocksLivenessInfo[block] = completeLiveness;
+            return completeLiveness;
+        }
+
+        if (LivenessAnalysisHelper.IsSerialExecutableBlock(block) ||
+            LivenessAnalysisHelper.IsFallthroughOnlyBlock(block))
+        {
+            var fallthrough = AnalyzeComplete(block.FallThroughSuccessor!.Destination!);
+            var blockLiveness = _basicBlocksLivenessInfo[block];
+            var completeLiveness = blockLiveness with
+            {
+                LiveIn = blockLiveness.LiveIn.Union(fallthrough.LiveIn).Except(blockLiveness.RegionLocals),
+                LiveOut = blockLiveness.LiveOut.Union(fallthrough.LiveOut).Except(blockLiveness.RegionLocals)
+            };
+            _basicBlocksLivenessInfo[block] = completeLiveness;
+            return completeLiveness;
         }
 
         throw new UnreachableException();
@@ -297,63 +360,6 @@ internal class LivenessDataflowAnalyzer
 
         _dependencyLocals.Add(forLoop, dependencies);
         return (dependencies, true);
-    }
-}
-
-file class FlowInAnalyzer
-{
-    private readonly Dictionary<BasicBlock, LivenessInfo> _basicBlocksLivenessInfo;
-    private readonly HashSet<BasicBlock> _worklist;
-
-    public FlowInAnalyzer(Dictionary<BasicBlock, LivenessInfo> basicBlocksLivenessInfo)
-    {
-        _basicBlocksLivenessInfo = basicBlocksLivenessInfo;
-        _worklist = new HashSet<BasicBlock>(_basicBlocksLivenessInfo.Count, ReferenceEqualityComparer.Instance);
-    }
-
-    public LivenessInfo Analyze(BasicBlock block)
-    {
-        if (_worklist.Contains(block) && _basicBlocksLivenessInfo.TryGetValue(block, out var livenessInfo))
-        {
-            return livenessInfo;
-        }
-
-        _worklist.Add(block);
-        if (LivenessAnalysisHelper.IsBinaryFlowOnlyBlock(block) ||
-            LivenessAnalysisHelper.IsBranchingExecutableBlock(block))
-        {
-            var fallthrough = block.FallThroughSuccessor!.Destination!;
-            var conditional = block.ConditionalSuccessor?.Destination!;
-            var fallthroughLiveness =
-                fallthrough.Kind is BasicBlockKind.Exit ? LivenessInfo.Default : Analyze(fallthrough);
-            var conditionalLiveness =
-                fallthrough.Kind is BasicBlockKind.Exit ? LivenessInfo.Default : Analyze(conditional);
-            var blockLiveness = _basicBlocksLivenessInfo[block];
-            var completeLiveness = blockLiveness with
-            {
-                FlowIn = blockLiveness.LiveIn
-                    .Union(fallthroughLiveness.LiveIn)
-                    .Union(conditionalLiveness.LiveIn)
-                    .Except(blockLiveness.RegionLocals)
-            };
-            _basicBlocksLivenessInfo[block] = completeLiveness;
-            return completeLiveness;
-        }
-
-        if (LivenessAnalysisHelper.IsSerialExecutableBlock(block) ||
-            LivenessAnalysisHelper.IsFallthroughOnlyBlock(block))
-        {
-            var fallthrough = Analyze(block.FallThroughSuccessor!.Destination!);
-            var blockLiveness = _basicBlocksLivenessInfo[block];
-            var completeLiveness = blockLiveness with
-            {
-                FlowIn = blockLiveness.LiveIn.Union(fallthrough.LiveIn).Except(blockLiveness.RegionLocals)
-            };
-            _basicBlocksLivenessInfo[block] = completeLiveness;
-            return completeLiveness;
-        }
-
-        throw new UnreachableException();
     }
 }
 
