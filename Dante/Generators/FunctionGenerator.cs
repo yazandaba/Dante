@@ -255,31 +255,22 @@ internal sealed partial class FunctionGenerator
     {
         _generatedBlocks.TryGetValue(targetBlock, out var basicBlockInfo);
         basicBlockInfo.Should().NotBeNull("fetching basic block info failed as basic block was not generated before");
-        var arguments = new List<Expr>();
-        foreach (var dependentOnSymbol in basicBlockInfo!.DependentOnSymbols)
-        {
-            var argument = dependentOnSymbol switch
+        var paramList = basicBlockInfo!
+            .DependentOnSymbols
+            .Select(symbol => symbol switch
             {
                 ILocalSymbol local => GenerateFunctionLocal(local, evaluationTable, true),
                 IParameterSymbol parameter => GenerateFunctionParameter(parameter, evaluationTable, true),
-                _ => null
-            };
+                _ => throw new InvalidOperationException($"live-in symbols of basic block " +
+                                                         $"{basicBlockInfo.GeneratedBasicBlock.Name} do not match " +
+                                                         "the live-in symbols of its dominator, programs with " +
+                                                         "irregular CFG is not supported and all loop nodes " +
+                                                         "should have at most one header that dominates its body " +
+                                                         "basic blocks")
+            })
+            .ToArray();
 
-            if (argument is not null)
-            {
-                arguments.Add(argument);
-            }
-            else
-            {
-                var dependency = _generatedBlocks[targetBlock];
-                if (dependency.BasicBlockEvaluationTable.TryFetch(dependentOnSymbol, out Expr? dependencyValue))
-                {
-                    arguments.Add(dependencyValue);
-                }
-            }
-        }
-
-        return arguments.ToArray();
+        return paramList!;
     }
 
     private Expr[] GenerateBasicBlockFuncParameterList(BasicBlock basicBlock)
@@ -397,7 +388,7 @@ internal sealed partial class FunctionGenerator
         }
         else
         {
-            dependentOnSymbols = [..basicBlockLivenessAnalysis.FlowIn];
+            dependentOnSymbols = [..basicBlockLivenessAnalysis.LiveIn];
         }
 
         var basicBlockSymbols = basicBlockLivenessAnalysis.LiveIn
@@ -442,7 +433,7 @@ internal sealed partial class FunctionGenerator
         IReadOnlyList<ISymbol> exitBasicBlockSymbols;
         if (!_ownerCallable.IsAnonymousLambda)
         {
-            exitBasicBlockSymbols = [..returnLiveness.FlowIn];
+            exitBasicBlockSymbols = [..returnLiveness.LiveIn];
         }
         else
         {
