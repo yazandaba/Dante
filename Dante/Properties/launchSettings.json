@@ -20,6 +20,11 @@
       "workingDirectory": "$(MSBuildProjectDirectory)/../Sample",
       "commandLineArgs": "-highlight -debug -p Sample.csproj -c Sample.Loop -original Original -transformed Transformed -r 10"
     },
+    "ComplexLoop": {
+      "commandName": "Project",
+      "workingDirectory": "$(MSBuildProjectDirectory)/../Sample",
+      "commandLineArgs": "-highlight -debug -p Sample.csproj -c Sample.Loop -original OriginalComplexLoop -transformed TransformedComplexLoop -r 10"
+    },
     "NullCoalescing": {
       "commandName": "Project",
       "workingDirectory": "$(MSBuildProjectDirectory)/../Sample",
