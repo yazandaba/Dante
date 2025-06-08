@@ -49,8 +49,8 @@ The verification process is unbounded, terminating based on resource limits or a
 
 1.  **Clone the repository:**
     ```bash
-    git clone https://github.com/yazandaba/Dante.git # Replace <repository-url> with the actual URL
-    cd Dante # Or your project's directory name
+    git clone https://github.com/yazandaba/Dante.git
+    cd Dante
     ```
 2.  **Build the project:**
     ```bash
@@ -711,10 +711,9 @@ Dante is primarily aimed at:
 ---
 ## Documentation
 
-Detailed documentation is currently a work in progress. A comprehensive blog post explaining more about Dante is planned for the near future.
+https://yazandaba.hashnode.dev/dante-a-case-study-in-compiler-assisted-verification-using-model-checking
 
 ---
 ## License
 
 This project is licensed under the MIT License. See the `LICENSE` file for more details.
-```
